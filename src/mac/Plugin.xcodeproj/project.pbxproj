@@ -1,0 +1,402 @@
+// !$*UTF8*$!
+{
+	archiveVersion = 1;
+	classes = {
+	};
+	objectVersion = 46;
+	objects = {
+
+/* Begin PBXBuildFile section */
+		F54A690527EE233700ACF0E5 /* PlatformCommandLine-mac.mm in Sources */ = {isa = PBXBuildFile; fileRef = F54A690327EE233700ACF0E5 /* PlatformCommandLine-mac.mm */; };
+		F54A690627EE233700ACF0E5 /* PlatformCommandLine.h in Headers */ = {isa = PBXBuildFile; fileRef = F54A690427EE233700ACF0E5 /* PlatformCommandLine.h */; };
+		F54A690827EE263D00ACF0E5 /* PlatformCommandLine.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F54A690727EE263D00ACF0E5 /* PlatformCommandLine.cpp */; };
+		F5852E4C1D08589300BD1AE3 /* BaseEosCallResultHandler.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5852E3C1D08589300BD1AE3 /* BaseEosCallResultHandler.cpp */; };
+		F5852E4D1D08589300BD1AE3 /* BaseEosCallResultHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F5852E3D1D08589300BD1AE3 /* BaseEosCallResultHandler.h */; };
+		F5852E4E1D08589300BD1AE3 /* DispatchEventTask.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5852E3E1D08589300BD1AE3 /* DispatchEventTask.cpp */; };
+		F5852E4F1D08589300BD1AE3 /* DispatchEventTask.h in Headers */ = {isa = PBXBuildFile; fileRef = F5852E3F1D08589300BD1AE3 /* DispatchEventTask.h */; };
+		F5852E501D08589300BD1AE3 /* LuaEventDispatcher.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5852E401D08589300BD1AE3 /* LuaEventDispatcher.cpp */; };
+		F5852E511D08589300BD1AE3 /* LuaEventDispatcher.h in Headers */ = {isa = PBXBuildFile; fileRef = F5852E411D08589300BD1AE3 /* LuaEventDispatcher.h */; };
+		F5852E521D08589300BD1AE3 /* LuaMethodCallback.h in Headers */ = {isa = PBXBuildFile; fileRef = F5852E421D08589300BD1AE3 /* LuaMethodCallback.h */; };
+		F5852E531D08589300BD1AE3 /* PluginConfigLuaSettings.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5852E431D08589300BD1AE3 /* PluginConfigLuaSettings.cpp */; };
+		F5852E541D08589300BD1AE3 /* PluginConfigLuaSettings.h in Headers */ = {isa = PBXBuildFile; fileRef = F5852E441D08589300BD1AE3 /* PluginConfigLuaSettings.h */; };
+		F5852E561D08589300BD1AE3 /* RuntimeContext.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5852E461D08589300BD1AE3 /* RuntimeContext.cpp */; };
+		F5852E571D08589300BD1AE3 /* RuntimeContext.h in Headers */ = {isa = PBXBuildFile; fileRef = F5852E471D08589300BD1AE3 /* RuntimeContext.h */; };
+		F5852E581D08589300BD1AE3 /* EosCallResultHandler.h in Headers */ = {isa = PBXBuildFile; fileRef = F5852E481D08589300BD1AE3 /* EosCallResultHandler.h */; };
+		F5852E5B1D08589300BD1AE3 /* EosLuaInterface.cpp in Sources */ = {isa = PBXBuildFile; fileRef = F5852E4B1D08589300BD1AE3 /* EosLuaInterface.cpp */; };
+		F5852E5C1D085D3600BD1AE3 /* libEOSSDK-Mac-Shipping.dylib in Frameworks */ = {isa = PBXBuildFile; fileRef = 033235EA1CA6285B001E62D6 /* libEOSSDK-Mac-Shipping.dylib */; };
+		F5852E601D08621500BD1AE3 /* plugin_eos.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 800621091B72CFEF00E34F9D /* plugin_eos.dylib */; };
+		F5852E611D08627B00BD1AE3 /* libEOSSDK-Mac-Shipping.dylib in CopyFiles */ = {isa = PBXBuildFile; fileRef = 033235EA1CA6285B001E62D6 /* libEOSSDK-Mac-Shipping.dylib */; };
+/* End PBXBuildFile section */
+
+/* Begin PBXCopyFilesBuildPhase section */
+		F5852E5D1D085D6A00BD1AE3 /* CopyFiles */ = {
+			isa = PBXCopyFilesBuildPhase;
+			buildActionMask = 2147483647;
+			dstPath = "${HOME}/Library/Application Support/Corona/Simulator/Plugins";
+			dstSubfolderSpec = 0;
+			files = (
+				F5852E601D08621500BD1AE3 /* plugin_eos.dylib in CopyFiles */,
+				F5852E611D08627B00BD1AE3 /* libEOSSDK-Mac-Shipping.dylib in CopyFiles */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXCopyFilesBuildPhase section */
+
+/* Begin PBXFileReference section */
+		033235EA1CA6285B001E62D6 /* libEOSSDK-Mac-Shipping.dylib */ = {isa = PBXFileReference; lastKnownFileType = "compiled.mach-o.dylib"; name = "libEOSSDK-Mac-Shipping.dylib"; path = "../Dependencies/Epic/redistributable_bin/libEOSSDK-Mac-Shipping.dylib"; sourceTree = "<group>"; };
+		800621091B72CFEF00E34F9D /* plugin_eos.dylib */ = {isa = PBXFileReference; explicitFileType = "compiled.mach-o.dylib"; includeInIndex = 0; path = plugin_eos.dylib; sourceTree = BUILT_PRODUCTS_DIR; };
+		F54A690327EE233700ACF0E5 /* PlatformCommandLine-mac.mm */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.objcpp; path = "PlatformCommandLine-mac.mm"; sourceTree = "<group>"; };
+		F54A690427EE233700ACF0E5 /* PlatformCommandLine.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; path = PlatformCommandLine.h; sourceTree = "<group>"; };
+		F54A690727EE263D00ACF0E5 /* PlatformCommandLine.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; path = PlatformCommandLine.cpp; sourceTree = "<group>"; };
+		F5852E3C1D08589300BD1AE3 /* BaseEosCallResultHandler.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = BaseEosCallResultHandler.cpp; path = ../Source/BaseEosCallResultHandler.cpp; sourceTree = "<group>"; };
+		F5852E3D1D08589300BD1AE3 /* BaseEosCallResultHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = BaseEosCallResultHandler.h; path = ../Source/BaseEosCallResultHandler.h; sourceTree = "<group>"; };
+		F5852E3E1D08589300BD1AE3 /* DispatchEventTask.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = DispatchEventTask.cpp; path = ../Source/DispatchEventTask.cpp; sourceTree = "<group>"; };
+		F5852E3F1D08589300BD1AE3 /* DispatchEventTask.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = DispatchEventTask.h; path = ../Source/DispatchEventTask.h; sourceTree = "<group>"; };
+		F5852E401D08589300BD1AE3 /* LuaEventDispatcher.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = LuaEventDispatcher.cpp; path = ../Source/LuaEventDispatcher.cpp; sourceTree = "<group>"; };
+		F5852E411D08589300BD1AE3 /* LuaEventDispatcher.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LuaEventDispatcher.h; path = ../Source/LuaEventDispatcher.h; sourceTree = "<group>"; };
+		F5852E421D08589300BD1AE3 /* LuaMethodCallback.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = LuaMethodCallback.h; path = ../Source/LuaMethodCallback.h; sourceTree = "<group>"; };
+		F5852E431D08589300BD1AE3 /* PluginConfigLuaSettings.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = PluginConfigLuaSettings.cpp; path = ../Source/PluginConfigLuaSettings.cpp; sourceTree = "<group>"; };
+		F5852E441D08589300BD1AE3 /* PluginConfigLuaSettings.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = PluginConfigLuaSettings.h; path = ../Source/PluginConfigLuaSettings.h; sourceTree = "<group>"; };
+		F5852E461D08589300BD1AE3 /* RuntimeContext.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = RuntimeContext.cpp; path = ../Source/RuntimeContext.cpp; sourceTree = "<group>"; };
+		F5852E471D08589300BD1AE3 /* RuntimeContext.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = RuntimeContext.h; path = ../Source/RuntimeContext.h; sourceTree = "<group>"; };
+		F5852E481D08589300BD1AE3 /* EosCallResultHandler.h */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.c.h; name = EosCallResultHandler.h; path = ../Source/EosCallResultHandler.h; sourceTree = "<group>"; };
+		F5852E4B1D08589300BD1AE3 /* EosLuaInterface.cpp */ = {isa = PBXFileReference; fileEncoding = 4; lastKnownFileType = sourcecode.cpp.cpp; name = EosLuaInterface.cpp; path = ../Source/EosLuaInterface.cpp; sourceTree = "<group>"; };
+/* End PBXFileReference section */
+
+/* Begin PBXFrameworksBuildPhase section */
+		800620FF1B72CFEF00E34F9D /* Frameworks */ = {
+			isa = PBXFrameworksBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F5852E5C1D085D3600BD1AE3 /* libEOSSDK-Mac-Shipping.dylib in Frameworks */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXFrameworksBuildPhase section */
+
+/* Begin PBXGroup section */
+		807BBF601B4C7AD2003A223B = {
+			isa = PBXGroup;
+			children = (
+				807BC08D1B4C8C0A003A223B /* sdk */,
+				807BBF831B4C7D50003A223B /* src */,
+				807BBF6A1B4C7AD2003A223B /* Products */,
+			);
+			sourceTree = "<group>";
+		};
+		807BBF6A1B4C7AD2003A223B /* Products */ = {
+			isa = PBXGroup;
+			children = (
+				800621091B72CFEF00E34F9D /* plugin_eos.dylib */,
+			);
+			name = Products;
+			sourceTree = "<group>";
+		};
+		807BBF831B4C7D50003A223B /* src */ = {
+			isa = PBXGroup;
+			children = (
+				F54A690327EE233700ACF0E5 /* PlatformCommandLine-mac.mm */,
+				F54A690727EE263D00ACF0E5 /* PlatformCommandLine.cpp */,
+				F54A690427EE233700ACF0E5 /* PlatformCommandLine.h */,
+				F5852E3C1D08589300BD1AE3 /* BaseEosCallResultHandler.cpp */,
+				F5852E3D1D08589300BD1AE3 /* BaseEosCallResultHandler.h */,
+				F5852E3E1D08589300BD1AE3 /* DispatchEventTask.cpp */,
+				F5852E3F1D08589300BD1AE3 /* DispatchEventTask.h */,
+				F5852E401D08589300BD1AE3 /* LuaEventDispatcher.cpp */,
+				F5852E411D08589300BD1AE3 /* LuaEventDispatcher.h */,
+				F5852E421D08589300BD1AE3 /* LuaMethodCallback.h */,
+				F5852E431D08589300BD1AE3 /* PluginConfigLuaSettings.cpp */,
+				F5852E441D08589300BD1AE3 /* PluginConfigLuaSettings.h */,
+				F5852E461D08589300BD1AE3 /* RuntimeContext.cpp */,
+				F5852E471D08589300BD1AE3 /* RuntimeContext.h */,
+				F5852E481D08589300BD1AE3 /* EosCallResultHandler.h */,
+				F5852E4B1D08589300BD1AE3 /* EosLuaInterface.cpp */,
+			);
+			name = src;
+			path = ../Source;
+			sourceTree = "<group>";
+		};
+		807BC08D1B4C8C0A003A223B /* sdk */ = {
+			isa = PBXGroup;
+			children = (
+				033235EA1CA6285B001E62D6 /* libEOSSDK-Mac-Shipping.dylib */,
+			);
+			name = sdk;
+			sourceTree = "<group>";
+		};
+/* End PBXGroup section */
+
+/* Begin PBXHeadersBuildPhase section */
+		800621011B72CFEF00E34F9D /* Headers */ = {
+			isa = PBXHeadersBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F5852E4D1D08589300BD1AE3 /* BaseEosCallResultHandler.h in Headers */,
+				F5852E521D08589300BD1AE3 /* LuaMethodCallback.h in Headers */,
+				F5852E4F1D08589300BD1AE3 /* DispatchEventTask.h in Headers */,
+				F5852E511D08589300BD1AE3 /* LuaEventDispatcher.h in Headers */,
+				F5852E541D08589300BD1AE3 /* PluginConfigLuaSettings.h in Headers */,
+				F5852E571D08589300BD1AE3 /* RuntimeContext.h in Headers */,
+				F5852E581D08589300BD1AE3 /* EosCallResultHandler.h in Headers */,
+				F54A690627EE233700ACF0E5 /* PlatformCommandLine.h in Headers */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXHeadersBuildPhase section */
+
+/* Begin PBXNativeTarget section */
+		800620F91B72CFEF00E34F9D /* plugin_eos */ = {
+			isa = PBXNativeTarget;
+			buildConfigurationList = 800621061B72CFEF00E34F9D /* Build configuration list for PBXNativeTarget "plugin_eos" */;
+			buildPhases = (
+				800620FA1B72CFEF00E34F9D /* Sources */,
+				800620FF1B72CFEF00E34F9D /* Frameworks */,
+				800621011B72CFEF00E34F9D /* Headers */,
+				F5852E5D1D085D6A00BD1AE3 /* CopyFiles */,
+			);
+			buildRules = (
+			);
+			dependencies = (
+			);
+			name = plugin_eos;
+			productName = Plugin;
+			productReference = 800621091B72CFEF00E34F9D /* plugin_eos.dylib */;
+			productType = "com.apple.product-type.library.dynamic";
+		};
+/* End PBXNativeTarget section */
+
+/* Begin PBXProject section */
+		807BBF611B4C7AD2003A223B /* Project object */ = {
+			isa = PBXProject;
+			attributes = {
+				LastUpgradeCheck = 1330;
+				ORGANIZATIONNAME = "Corona Labs";
+			};
+			buildConfigurationList = 807BBF641B4C7AD2003A223B /* Build configuration list for PBXProject "Plugin" */;
+			compatibilityVersion = "Xcode 3.2";
+			developmentRegion = en;
+			hasScannedForEncodings = 0;
+			knownRegions = (
+				en,
+				Base,
+			);
+			mainGroup = 807BBF601B4C7AD2003A223B;
+			productRefGroup = 807BBF6A1B4C7AD2003A223B /* Products */;
+			projectDirPath = "";
+			projectRoot = "";
+			targets = (
+				800620F91B72CFEF00E34F9D /* plugin_eos */,
+			);
+		};
+/* End PBXProject section */
+
+/* Begin PBXSourcesBuildPhase section */
+		800620FA1B72CFEF00E34F9D /* Sources */ = {
+			isa = PBXSourcesBuildPhase;
+			buildActionMask = 2147483647;
+			files = (
+				F5852E4E1D08589300BD1AE3 /* DispatchEventTask.cpp in Sources */,
+				F5852E4C1D08589300BD1AE3 /* BaseEosCallResultHandler.cpp in Sources */,
+				F5852E561D08589300BD1AE3 /* RuntimeContext.cpp in Sources */,
+				F54A690527EE233700ACF0E5 /* PlatformCommandLine-mac.mm in Sources */,
+				F54A690827EE263D00ACF0E5 /* PlatformCommandLine.cpp in Sources */,
+				F5852E501D08589300BD1AE3 /* LuaEventDispatcher.cpp in Sources */,
+				F5852E531D08589300BD1AE3 /* PluginConfigLuaSettings.cpp in Sources */,
+				F5852E5B1D08589300BD1AE3 /* EosLuaInterface.cpp in Sources */,
+			);
+			runOnlyForDeploymentPostprocessing = 0;
+		};
+/* End PBXSourcesBuildPhase section */
+
+/* Begin XCBuildConfiguration section */
+		800621071B72CFEF00E34F9D /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				HEADER_SEARCH_PATHS = "";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					../Dependencies/Epic/redistributable_bin,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				OTHER_LDFLAGS = (
+					"-undefined",
+					dynamic_lookup,
+				);
+				PRODUCT_MODULE_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = "../Dependencies/Corona/shared/include/Corona ../Dependencies/Corona/shared/include/lua ../Dependencies/Epic/public/epic";
+			};
+			name = Debug;
+		};
+		800621081B72CFEF00E34F9D /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				CLANG_ENABLE_MODULES = NO;
+				COMBINE_HIDPI_IMAGES = YES;
+				DYLIB_COMPATIBILITY_VERSION = 1;
+				DYLIB_CURRENT_VERSION = 1;
+				FRAMEWORK_SEARCH_PATHS = "$(inherited)";
+				GCC_PRECOMPILE_PREFIX_HEADER = YES;
+				HEADER_SEARCH_PATHS = "";
+				LD_RUNPATH_SEARCH_PATHS = "@loader_path";
+				LIBRARY_SEARCH_PATHS = (
+					"$(inherited)",
+					../Dependencies/Epic/redistributable_bin,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.12;
+				OTHER_LDFLAGS = (
+					"-undefined",
+					dynamic_lookup,
+				);
+				PRODUCT_MODULE_NAME = "$(TARGET_NAME)";
+				PRODUCT_NAME = "$(TARGET_NAME)";
+				USER_HEADER_SEARCH_PATHS = "../Dependencies/Corona/shared/include/Corona ../Dependencies/Corona/shared/include/lua ../Dependencies/Epic/public/epic";
+			};
+			name = Release;
+		};
+		807BBF7B1B4C7AD2003A223B /* Debug */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = dwarf;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				ENABLE_TESTABILITY = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_DYNAMIC_NO_PIC = NO;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_OPTIMIZATION_LEVEL = 0;
+				GCC_PREPROCESSOR_DEFINITIONS = (
+					"DEBUG=1",
+					"$(inherited)",
+				);
+				GCC_SYMBOLS_PRIVATE_EXTERN = NO;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					../src,
+					"${SRCROOT}/CoronaEnterprise/Corona/shared/include/lua",
+					../sdk/public/epic,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = YES;
+				ONLY_ACTIVE_ARCH = YES;
+				SDKROOT = macosx;
+				USER_HEADER_SEARCH_PATHS = "${SRCROOT}/CoronaEnterprise/Corona/shared/include/Corona ${SRCROOT}/CoronaEnterprise/Corona/shared/include/lua ../sdk/public/epic ${SRCROOT}/CoronaEnterprise/Corona/ios/include/Corona";
+			};
+			name = Debug;
+		};
+		807BBF7C1B4C7AD2003A223B /* Release */ = {
+			isa = XCBuildConfiguration;
+			buildSettings = {
+				ALWAYS_SEARCH_USER_PATHS = NO;
+				CLANG_ANALYZER_LOCALIZABILITY_NONLOCALIZED = YES;
+				CLANG_CXX_LANGUAGE_STANDARD = "c++0x";
+				CLANG_CXX_LIBRARY = "libc++";
+				CLANG_ENABLE_MODULES = YES;
+				CLANG_ENABLE_OBJC_ARC = YES;
+				CLANG_WARN_BLOCK_CAPTURE_AUTORELEASING = YES;
+				CLANG_WARN_BOOL_CONVERSION = YES;
+				CLANG_WARN_COMMA = YES;
+				CLANG_WARN_CONSTANT_CONVERSION = YES;
+				CLANG_WARN_DEPRECATED_OBJC_IMPLEMENTATIONS = YES;
+				CLANG_WARN_DIRECT_OBJC_ISA_USAGE = YES_ERROR;
+				CLANG_WARN_EMPTY_BODY = YES;
+				CLANG_WARN_ENUM_CONVERSION = YES;
+				CLANG_WARN_INFINITE_RECURSION = YES;
+				CLANG_WARN_INT_CONVERSION = YES;
+				CLANG_WARN_NON_LITERAL_NULL_CONVERSION = YES;
+				CLANG_WARN_OBJC_IMPLICIT_RETAIN_SELF = YES;
+				CLANG_WARN_OBJC_LITERAL_CONVERSION = YES;
+				CLANG_WARN_OBJC_ROOT_CLASS = YES_ERROR;
+				CLANG_WARN_QUOTED_INCLUDE_IN_FRAMEWORK_HEADER = YES;
+				CLANG_WARN_RANGE_LOOP_ANALYSIS = YES;
+				CLANG_WARN_STRICT_PROTOTYPES = YES;
+				CLANG_WARN_SUSPICIOUS_MOVE = YES;
+				CLANG_WARN_UNREACHABLE_CODE = YES;
+				CLANG_WARN__DUPLICATE_METHOD_MATCH = YES;
+				COPY_PHASE_STRIP = NO;
+				DEBUG_INFORMATION_FORMAT = "dwarf-with-dsym";
+				ENABLE_NS_ASSERTIONS = NO;
+				ENABLE_STRICT_OBJC_MSGSEND = YES;
+				GCC_C_LANGUAGE_STANDARD = gnu99;
+				GCC_NO_COMMON_BLOCKS = YES;
+				GCC_WARN_64_TO_32_BIT_CONVERSION = YES;
+				GCC_WARN_ABOUT_RETURN_TYPE = YES_ERROR;
+				GCC_WARN_UNDECLARED_SELECTOR = YES;
+				GCC_WARN_UNINITIALIZED_AUTOS = YES_AGGRESSIVE;
+				GCC_WARN_UNUSED_FUNCTION = YES;
+				GCC_WARN_UNUSED_VARIABLE = YES;
+				HEADER_SEARCH_PATHS = (
+					../src,
+					"${SRCROOT}/CoronaEnterprise/Corona/shared/include/lua",
+					../sdk/public/epic,
+				);
+				MACOSX_DEPLOYMENT_TARGET = 10.10;
+				MTL_ENABLE_DEBUG_INFO = NO;
+				SDKROOT = macosx;
+				USER_HEADER_SEARCH_PATHS = "${SRCROOT}/CoronaEnterprise/Corona/shared/include/Corona ${SRCROOT}/CoronaEnterprise/Corona/shared/include/lua ../sdk/public/epic ${SRCROOT}/CoronaEnterprise/Corona/ios/include/Corona";
+			};
+			name = Release;
+		};
+/* End XCBuildConfiguration section */
+
+/* Begin XCConfigurationList section */
+		800621061B72CFEF00E34F9D /* Build configuration list for PBXNativeTarget "plugin_eos" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				800621071B72CFEF00E34F9D /* Debug */,
+				800621081B72CFEF00E34F9D /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+		807BBF641B4C7AD2003A223B /* Build configuration list for PBXProject "Plugin" */ = {
+			isa = XCConfigurationList;
+			buildConfigurations = (
+				807BBF7B1B4C7AD2003A223B /* Debug */,
+				807BBF7C1B4C7AD2003A223B /* Release */,
+			);
+			defaultConfigurationIsVisible = 0;
+			defaultConfigurationName = Release;
+		};
+/* End XCConfigurationList section */
+	};
+	rootObject = 807BBF611B4C7AD2003A223B /* Project object */;
+}

@@ -1,0 +1,20 @@
+﻿<?xml version="1.0" encoding="utf-8"?>
+<Project ToolsVersion="4.0" xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <ItemGroup>
+    <ClCompile Include="LuaEventDispatcher.cpp" />
+    <ClCompile Include="RuntimeContext.cpp" />
+    <ClCompile Include="BaseEosCallResultHandler.cpp" />
+    <ClCompile Include="EosLuaInterface.cpp" />
+    <ClCompile Include="DispatchEventTask.cpp" />
+    <ClCompile Include="PluginConfigLuaSettings.cpp" />
+  </ItemGroup>
+  <ItemGroup>
+    <ClInclude Include="LuaEventDispatcher.h" />
+    <ClInclude Include="RuntimeContext.h" />
+    <ClInclude Include="LuaMethodCallback.h" />
+    <ClInclude Include="EosCallResultHandler.h" />
+    <ClInclude Include="BaseEosCallResultHandler.h" />
+    <ClInclude Include="DispatchEventTask.h" />
+    <ClInclude Include="PluginConfigLuaSettings.h" />
+  </ItemGroup>
+</Project>
