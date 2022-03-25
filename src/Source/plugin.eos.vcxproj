@@ -99,6 +99,8 @@ copy /y "..\Dependencies\Epic\redistributable_bin\EOSSDK-Win32-Shipping.dll" "$(
     <ClCompile Include="DispatchEventTask.cpp" />
     <ClCompile Include="BaseEosCallResultHandler.cpp" />
     <ClCompile Include="LuaEventDispatcher.cpp" />
+    <ClCompile Include="PlatformCommandLine-win.cpp" />
+    <ClCompile Include="PlatformCommandLine.cpp" />
     <ClCompile Include="PluginConfigLuaSettings.cpp" />
     <ClCompile Include="RuntimeContext.cpp" />
     <ClCompile Include="EosLuaInterface.cpp" />
@@ -108,6 +110,7 @@ copy /y "..\Dependencies\Epic\redistributable_bin\EOSSDK-Win32-Shipping.dll" "$(
     <ClInclude Include="BaseEosCallResultHandler.h" />
     <ClInclude Include="LuaEventDispatcher.h" />
     <ClInclude Include="LuaMethodCallback.h" />
+    <ClInclude Include="PlatformCommandLine.h" />
     <ClInclude Include="PluginConfigLuaSettings.h" />
     <ClInclude Include="RuntimeContext.h" />
     <ClInclude Include="EosCallResultHandler.h" />

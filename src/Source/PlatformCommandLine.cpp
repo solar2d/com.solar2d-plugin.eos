@@ -9,13 +9,13 @@
 
 #include "PlatformCommandLine.h"
 
-const std::map<std::string, std::string>& PlatformCommandLine::GommandLineMap() {
+const std::map<std::string, std::string>& CMDLine::Map() {
 	static std::map<std::string, std::string> ret;
     static bool toInit = true;
 
 	if(toInit) {
 		toInit = false;
-		for(auto &arg : GetCommandLine()) {
+		for(auto &arg : Get()) {
 			auto p = arg.find_first_of("=");
 			if(p != std::string::npos) {
 				auto key = arg.substr(0, p);
@@ -29,6 +29,11 @@ const std::map<std::string, std::string>& PlatformCommandLine::GommandLineMap() 
 			}
 		}
 	}
+	return ret;
+}
+
+const std::map<std::string, std::string>::const_iterator& CMDLine::End() {
+	static auto ret = Map().end();
 	return ret;
 }
 

@@ -7,6 +7,8 @@
     <ClCompile Include="EosLuaInterface.cpp" />
     <ClCompile Include="DispatchEventTask.cpp" />
     <ClCompile Include="PluginConfigLuaSettings.cpp" />
+    <ClCompile Include="PlatformCommandLine.cpp" />
+    <ClCompile Include="PlatformCommandLine-win.cpp" />
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="LuaEventDispatcher.h" />
@@ -16,5 +18,6 @@
     <ClInclude Include="BaseEosCallResultHandler.h" />
     <ClInclude Include="DispatchEventTask.h" />
     <ClInclude Include="PluginConfigLuaSettings.h" />
+    <ClInclude Include="PlatformCommandLine.h" />
   </ItemGroup>
 </Project>

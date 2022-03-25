@@ -8,19 +8,27 @@
 // ----------------------------------------------------------------------------
 
 #include "PlatformCommandLine.h"
-#import <Foundation/Foundation.h>
+#include <windows.h>
+#include <codecvt>
 
-
-const std::vector<std::string>& CMDLine::GetCommandLine() {
+const std::vector<std::string>& CMDLine::Get() {
 	static std::vector<std::string> ret;
-    static bool toInit = true;
+	static bool toInit = true;
 
-	if(toInit) {
+	if (toInit) {
 		toInit = false;
-		NSArray<NSString *> *args = [[NSProcessInfo processInfo] arguments];
-		ret.reserve([args count]);
-		for(NSString *arg in args) {
-			ret.push_back([arg UTF8String]);
+		int argc = 0;
+		LPWSTR* argv = CommandLineToArgvW(GetCommandLineW(), &argc);
+		ret.reserve(argc);
+		for (int i = 0; argv && i < argc; i++) {
+			int len = WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, 0, 0, 0, 0);
+
+			char* buf = new char[len];
+
+			WideCharToMultiByte(CP_UTF8, 0, argv[i], -1, buf, len, 0, 0);
+
+			ret.push_back(buf);
+			delete[] buf;
 		}
 	}
 	return ret;
