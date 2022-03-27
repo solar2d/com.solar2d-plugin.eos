@@ -587,7 +587,7 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 
 	// Initialize our connection with EOS if this is the first plugin instance.
 	// Note: This avoid initializing twice in case multiple plugin instances exist at the same time.
-	if (RuntimeContext::GetInstanceCount() >= 0)
+	if (RuntimeContext::GetInstanceCount() == 1)
 	{
 		// Init EOS SDK
 		EOS_InitializeOptions SDKOptions = {};

@@ -132,12 +132,13 @@ bool DispatchLoginResponseEventTask::PushLuaEventTableTo(lua_State* luaStatePoin
 
 	// Push the event data to Lua.
 	CoronaLuaNewEvent(luaStatePointer, kLuaEventName);
-	lua_pushboolean(luaStatePointer, fResult != EOS_EResult::EOS_Success);
+
 	if(fResult == EOS_EResult::EOS_Success) {
 		lua_pushstring(luaStatePointer, fSelectedAccountID);
 		lua_setfield(luaStatePointer, -2, "selectedAccountId");
 	}
 	
+	lua_pushboolean(luaStatePointer, fResult != EOS_EResult::EOS_Success ? 1 : 0);
 	lua_setfield(luaStatePointer, -2, "isError");
 	lua_pushinteger(luaStatePointer, (int)fResult);
 	lua_setfield(luaStatePointer, -2, "resultCode");
