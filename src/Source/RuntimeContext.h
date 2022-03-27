@@ -122,15 +122,18 @@ class RuntimeContext
 		 */
 		std::shared_ptr<LuaEventDispatcher> GetLuaEventDispatcher() const;
 
-		/**
-		  @return Returns a pointer to the EOS PlatformHandle
-		 */
-		EOS_PlatformHandle* GetPlatformHandle() const;
 
-		/**
-		  @return Sets a pointer to the EOS PlatformHandle
-		 */
-		void SetPlatformHandle(EOS_PlatformHandle* platformHandle);
+		/** Handle for Auth interface */
+		EOS_HAuth fAuthHandle;
+
+		/** Handle for Platform interface*/
+		EOS_PlatformHandle* fPlatformHandle;
+
+		/** Handle for logged in account*/
+		EOS_EpicAccountId fAccountId;
+
+
+
 
 		template<class TSteamResultType, class TDispatchEventTask>
 		/**
@@ -166,8 +169,8 @@ class RuntimeContext
 		 */
 		static int GetInstanceCount();
 
-		/** Adds auth ticket to cancel queue */
-		void AddAuthIdToken(EOS_Auth_IdToken ticket);
+		/** Set up global Steam event handlers via their macros. */
+		void OnLoginResponse(const EOS_Auth_LoginCallbackInfo* Data);
 
 	private:
 		/** Copy constructor deleted to prevent it from being called. */
@@ -214,17 +217,11 @@ class RuntimeContext
 		 */
 		void OnHandleGlobalEosEventWithGameId(TSteamResultType* eventDataPointer);
 
-		/** Set up global Steam event handlers via their macros. */
-		// STEAM_CALLBACK(RuntimeContext, OnLoginResponse, LoginResponse_t);
-
-
 		/**
 		  The main event dispatcher that the plugin's Lua addEventListener() and removeEventListener() functions
 		  are bound to. Used to dispatch global steam events such as "LoginResponse_t".
 		 */
 		std::shared_ptr<LuaEventDispatcher> fLuaEventDispatcherPointer;
-
-		EOS_PlatformHandle* fPlatformHandle;
 
 		/** Lua "enterFrame" listener. */
 		LuaMethodCallback<RuntimeContext> fLuaEnterFrameCallback;
@@ -243,7 +240,7 @@ class RuntimeContext
 		std::vector<BaseEosCallResultHandler*> fEosCallResultHandlerPool;
 
 		/** set of auth ID tokens to be destroyed **/
-		std::set<EOS_Auth_IdToken> fAuthIdTokens;
+//		std::set<EOS_Auth_IdToken> fAuthIdTokens;
 
 		/** Set true if we need to force Corona to render on the next "enterFrame" event. */
 		bool fWasRenderRequested;

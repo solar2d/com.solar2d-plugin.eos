@@ -21,6 +21,23 @@ PluginConfigLuaSettings::~PluginConfigLuaSettings()
 {
 }
 
+const char* PluginConfigLuaSettings::GetStringEncryptionKey() const
+{
+	return fStringEncryptionKey.c_str();
+}
+
+void PluginConfigLuaSettings::SetStringEncryptionKey(const char* stringId)
+{
+	if (stringId)
+	{
+		fStringEncryptionKey = stringId;
+	}
+	else
+	{
+		fStringEncryptionKey.clear();
+	}
+}
+
 const char* PluginConfigLuaSettings::GetStringAppId() const
 {
 	return fStringAppId.c_str();
@@ -38,6 +55,56 @@ void PluginConfigLuaSettings::SetStringAppId(const char* stringId)
 	}
 }
 
+const char* PluginConfigLuaSettings::GetStringProductId() const
+{
+	return fStringProductId.c_str();
+}
+
+void PluginConfigLuaSettings::SetStringProductId(const char* stringId)
+{
+	if (stringId)
+	{
+		fStringProductId = stringId;
+	}
+	else
+	{
+		fStringProductId.clear();
+	}
+}
+
+const char* PluginConfigLuaSettings::GetStringSandboxId() const
+{
+	return fStringSandboxId.c_str();
+}
+
+void PluginConfigLuaSettings::SetStringSandboxId(const char* stringId)
+{
+	if (stringId)
+	{
+		fStringSandboxId = stringId;
+	}
+	else
+	{
+		fStringSandboxId.clear();
+	}
+}
+
+const char* PluginConfigLuaSettings::GetStringDeploymentId() const
+{
+	return fStringDeploymentId.c_str();
+}
+
+void PluginConfigLuaSettings::SetStringDeploymentId(const char* stringId)
+{
+	if (stringId)
+	{
+		fStringDeploymentId = stringId;
+	}
+	else
+	{
+		fStringAppId.clear();
+	}
+}
 
 const char* PluginConfigLuaSettings::GetStringClientId() const
 {
@@ -55,7 +122,6 @@ void PluginConfigLuaSettings::SetStringClientId(const char* stringId)
 		fStringClientId.clear();
 	}
 }
-
 
 const char* PluginConfigLuaSettings::GetStringClientSecret() const
 {
@@ -142,6 +208,19 @@ bool PluginConfigLuaSettings::LoadFrom(lua_State* luaStatePointer)
 				wasLoaded = true;
 
 				// Fetch the EOS app ID in string form.
+				lua_getfield(luaStatePointer, -1, "encryptionKey");
+				const auto encryptionKeyLuaValueType = lua_type(luaStatePointer, -1);
+				if (encryptionKeyLuaValueType == LUA_TSTRING)
+				{
+					auto stringValue = lua_tostring(luaStatePointer, -1);
+					if (stringValue)
+					{
+						fStringEncryptionKey = stringValue;
+					}
+				}
+				lua_pop(luaStatePointer, 1);
+
+				// Fetch the EOS app ID in string form.
 				lua_getfield(luaStatePointer, -1, "appId");
 				const auto appIdLuaValueType = lua_type(luaStatePointer, -1);
 				if (appIdLuaValueType == LUA_TSTRING)
@@ -150,6 +229,45 @@ bool PluginConfigLuaSettings::LoadFrom(lua_State* luaStatePointer)
 					if (stringValue)
 					{
 						fStringAppId = stringValue;
+					}
+				}
+				lua_pop(luaStatePointer, 1);
+
+				// Fetch the EOS app ID in string form.
+				lua_getfield(luaStatePointer, -1, "productId");
+				const auto productIdLuaValueType = lua_type(luaStatePointer, -1);
+				if (productIdLuaValueType == LUA_TSTRING)
+				{
+					auto stringValue = lua_tostring(luaStatePointer, -1);
+					if (stringValue)
+					{
+						fStringProductId = stringValue;
+					}
+				}
+				lua_pop(luaStatePointer, 1);
+
+				// Fetch the EOS app ID in string form.
+				lua_getfield(luaStatePointer, -1, "sandboxId");
+				const auto sandboxIdLuaValueType = lua_type(luaStatePointer, -1);
+				if (sandboxIdLuaValueType == LUA_TSTRING)
+				{
+					auto stringValue = lua_tostring(luaStatePointer, -1);
+					if (stringValue)
+					{
+						fStringSandboxId = stringValue;
+					}
+				}
+				lua_pop(luaStatePointer, 1);
+
+				// Fetch the EOS app ID in string form.
+				lua_getfield(luaStatePointer, -1, "deploymentId");
+				const auto deploymentIdLuaValueType = lua_type(luaStatePointer, -1);
+				if (deploymentIdLuaValueType == LUA_TSTRING)
+				{
+					auto stringValue = lua_tostring(luaStatePointer, -1);
+					if (stringValue)
+					{
+						fStringDeploymentId = stringValue;
 					}
 				}
 				lua_pop(luaStatePointer, 1);

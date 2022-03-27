@@ -16,6 +16,7 @@
 #include <cmath>
 #include <sstream>
 #include <stdint.h>
+
 #include <string>
 #include <thread>
 extern "C"
@@ -26,6 +27,19 @@ extern "C"
 #include "eos_sdk.h"
 #include "eos_ui.h"
 #include "eos_logging.h"
+#include "eos_auth.h"
+#include "PlatformCommandLine.h"
+
+#if ALLOW_RESERVED_PLATFORM_OPTIONS
+#include "ReservedPlatformOptions.h"
+#endif
+
+#ifdef _WIN32
+#include <windows.h>
+#include <windef.h>
+#include <winbase.h>
+#include "Windows/eos_Windows.h"
+#endif
 
 //---------------------------------------------------------------------------------
 // Constants
@@ -154,30 +168,18 @@ void EOS_CALL onEOSLogMessageReceived(const EOS_LogMessage* InMsg)
 	}
 }
 
-void CheckAutoLogin()
+void EOS_CALL onLoginCallback(const EOS_Auth_LoginCallbackInfo* Data)
 {
-
-
-	// SteamManager starts login automatically
-#ifndef EOS_STEAM_ENABLED
-	// Check for Launcher commandline params to log in via Exchange Code
-	// if (FCommandLine::Get().HasParam(CommandLineConstants::EpicPortal) &&
-	// 	FCommandLine::Get().HasParam(CommandLineConstants::LauncherAuthType) &&
-	// 	FCommandLine::Get().HasParam(CommandLineConstants::LauncherAuthPassword))
-	// {
-	// 	if (FCommandLine::Get().GetParamValue(CommandLineConstants::LauncherAuthType) == L"exchangecode")
-	// 	{
-	// 		std::wstring LauncherExchangeCode = FCommandLine::Get().GetParamValue(CommandLineConstants::LauncherAuthPassword);
-	// 		if (!LauncherExchangeCode.empty())
-	// 		{
-	// 			// Auto login with Exchange Code
-	// 			FGameEvent Event(EGameEventType::StartUserLogin, (int)ELoginMode::ExchangeCode, LauncherExchangeCode);
-	// 			FGame::Get().OnGameEvent(Event);
-	// 			return;
-	// 		}
-	// 	}
-	// }
-#endif
+	RuntimeContext* contextPointer = (RuntimeContext*)Data->ClientData;
+	if (Data->ResultCode == EOS_EResult::EOS_Success)
+	{
+		contextPointer->fAccountId = Data->SelectedAccountId;
+	}
+	
+	if (EOS_EResult_IsOperationComplete(Data->ResultCode))
+	{
+		contextPointer->OnLoginResponse(Data);
+	}
 }
 
 //---------------------------------------------------------------------------------
@@ -196,26 +198,25 @@ int OnGetAuthIdToken(lua_State* luaStatePointer)
 	auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
 	if (!contextPointer)
 	{
-		lua_pushboolean(luaStatePointer, 0);
-		return 1;
+		return 0;
 	}
 
-	// EOS_Auth_IdToken* UserAuthIdToken = nullptr;
+	EOS_Auth_CopyIdTokenOptions CopyTokenOptions = { 0 };
+	CopyTokenOptions.ApiVersion = EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST;
+	CopyTokenOptions.AccountId = contextPointer->fAccountId;
 
-	// EOS_Auth_CopyIdTokenOptions CopyTokenOptions = { 0 };
-	// CopyTokenOptions.ApiVersion = EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST;
-	// CopyTokenOptions.AccountId = nullptr;
-
-	// if (EOS_Auth_CopyIdToken(AuthHandle, &CopyTokenOptions, UserId, &UserAuthToken) == EOS_EResult::EOS_Success)
-	// {
-	// 	EOS_Auth_Token_Release(UserAuthToken);
-	// }
-	// else
-	// {
-	// 	CoronaLog("WARNING: [EOS SDK] User Auth Token is invalid");
-	// }
-
-	return 1;
+	EOS_Auth_IdToken* outIdToken;
+	if (EOS_Auth_CopyIdToken(contextPointer->fAuthHandle, &CopyTokenOptions, &outIdToken) == EOS_EResult::EOS_Success)
+	{
+		lua_pushstring(luaStatePointer, outIdToken->JsonWebToken);
+		EOS_Auth_IdToken_Release(outIdToken);
+		return 1;
+	}
+	else
+	{
+		CoronaLog("WARNING: [EOS SDK] User Auth Token is invalid");
+		return 0;
+	}
 }
 
 /** bool eos.setNotificationPosition(positionName) */
@@ -272,7 +273,7 @@ int OnSetNotificationPosition(lua_State* luaStatePointer)
 		return 0;
 	}
 
-	auto eosPlatformHandle = contextPointer->GetPlatformHandle();
+	auto eosPlatformHandle = contextPointer->fPlatformHandle;
 	if (eosPlatformHandle)
 	{
 		// Change EOS's notification position with given setting.
@@ -420,10 +421,15 @@ int OnAccessingField(lua_State* luaStatePointer)
 			return 0;
 		}
 
-		auto eosPlatformHandle = contextPointer->GetPlatformHandle();
-		if (!eosPlatformHandle)
+		if (!contextPointer->fAccountId)
 		{
-			return 0;
+			lua_pushboolean(luaStatePointer, 0);
+			return 1;
+		}
+
+		if (!contextPointer->fPlatformHandle) {
+			lua_pushboolean(luaStatePointer, 0);
+			return 1;
 		}
 
 		lua_pushboolean(luaStatePointer, 1);
@@ -578,15 +584,10 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 	// std::string configStringId;
 	PluginConfigLuaSettings configLuaSettings;
 	configLuaSettings.LoadFrom(luaStatePointer);
-	// 	if (configLuaSettings.GetStringAppId())
-	// 	{
-	// 		configStringId = configLuaSettings.GetStringAppId();
-	// 	}
-	// }
 
 	// Initialize our connection with EOS if this is the first plugin instance.
 	// Note: This avoid initializing twice in case multiple plugin instances exist at the same time.
-	if (RuntimeContext::GetInstanceCount() == 1)
+	if (RuntimeContext::GetInstanceCount() >= 0)
 	{
 		// Init EOS SDK
 		EOS_InitializeOptions SDKOptions = {};
@@ -594,8 +595,8 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 		SDKOptions.AllocateMemoryFunction = nullptr;
 		SDKOptions.ReallocateMemoryFunction = nullptr;
 		SDKOptions.ReleaseMemoryFunction = nullptr;
-		SDKOptions.ProductName = "JOCHEM - TODO";
-		SDKOptions.ProductVersion = "1.0"; // JOCHEM - TODO
+		SDKOptions.ProductName = "Coromon"; // JOCHEM - TODO
+		SDKOptions.ProductVersion = "1.0.12"; // JOCHEM - TODO
 		SDKOptions.Reserved = nullptr;
 		SDKOptions.SystemInitializeOptions = nullptr;
 		SDKOptions.OverrideThreadAffinity = nullptr;
@@ -616,50 +617,41 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 		else
 		{
 			CoronaLog("[EOS SDK] Logging Callback Set");
-			// EOS_Logging_SetLogLevel(EOS_ELogCategory::EOS_LC_ALL_CATEGORIES, EOS_ELogLevel::EOS_LOG_Verbose);
 		}
 
 		// Create platform instance
 		EOS_Platform_Options PlatformOptions = {};
 		PlatformOptions.ApiVersion = EOS_PLATFORM_OPTIONS_API_LATEST;
 		PlatformOptions.bIsServer = false;
-		PlatformOptions.EncryptionKey = "JOCHEM - TODO";
+		PlatformOptions.EncryptionKey = configLuaSettings.GetStringEncryptionKey();
 		PlatformOptions.OverrideCountryCode = nullptr;
 		PlatformOptions.OverrideLocaleCode = nullptr;
 		PlatformOptions.Flags = EOS_PF_WINDOWS_ENABLE_OVERLAY_D3D9 | EOS_PF_WINDOWS_ENABLE_OVERLAY_D3D10 | EOS_PF_WINDOWS_ENABLE_OVERLAY_OPENGL; // Enable overlay support for D3D9/10 and OpenGL. This sample uses D3D11 or SDL.
 		// PlatformOptions.CacheDirectory = FUtils::GetTempDirectory();
 
-		PlatformOptions.ProductId = "JOCHEM - TODO";
-		PlatformOptions.SandboxId = "JOCHEM - TODO";
-		PlatformOptions.DeploymentId = "JOCHEM - TODO";
+		PlatformOptions.ProductId = configLuaSettings.GetStringProductId();
+		PlatformOptions.SandboxId = configLuaSettings.GetStringSandboxId();
+		PlatformOptions.DeploymentId = configLuaSettings.GetStringDeploymentId();
 		PlatformOptions.ClientCredentials.ClientId = configLuaSettings.GetStringClientId();
 		PlatformOptions.ClientCredentials.ClientSecret = configLuaSettings.GetStringClientSecret();
 
+	#ifdef _WIN32
 		EOS_Platform_RTCOptions RtcOptions = { 0 };
 		RtcOptions.ApiVersion = EOS_PLATFORM_RTCOPTIONS_API_LATEST;
 
-	#ifdef _WIN32
-		// Get absolute path for xaudio2_9redist.dll file
-	#ifdef DXTK
-		wchar_t CurDir[MAX_PATH + 1] = {};
-		::GetCurrentDirectoryW(MAX_PATH + 1u, CurDir);
-		std::wstring BasePath = std::wstring(CurDir);
-		std::string XAudio29DllPath = FStringUtils::Narrow(BasePath);
-	#endif
-	#ifdef EOS_DEMO_SDL
-		std::string XAudio29DllPath = SDL_GetBasePath();
-	#endif // EOS_DEMO_SDL
-		XAudio29DllPath.append("/xaudio2_9redist.dll");
+        wchar_t CurDir[MAX_PATH + 1] = {};
+        ::GetCurrentDirectoryW(MAX_PATH + 1u, CurDir);
+        std::wstring BasePath = std::wstring(CurDir);
+        std::string XAudio29DllPath;
+        XAudio29DllPath.append("/xaudio2_9redist.dll");
 
-		EOS_Windows_RTCOptions WindowsRtcOptions = { 0 };
-		WindowsRtcOptions.ApiVersion = EOS_WINDOWS_RTCOPTIONS_API_LATEST;
-		WindowsRtcOptions.XAudio29DllPath = XAudio29DllPath.c_str();
-		RtcOptions.PlatformSpecificOptions = &WindowsRtcOptions;
-	#else
-		RtcOptions.PlatformSpecificOptions = NULL;
-	#endif // _WIN32
+        EOS_Windows_RTCOptions WindowsRtcOptions = { 0 };
+        WindowsRtcOptions.ApiVersion = EOS_WINDOWS_RTCOPTIONS_API_LATEST;
+        WindowsRtcOptions.XAudio29DllPath = XAudio29DllPath.c_str();
+        RtcOptions.PlatformSpecificOptions = &WindowsRtcOptions;
 
 		PlatformOptions.RTCOptions = &RtcOptions;
+	#endif // _WIN32
 
 	#if ALLOW_RESERVED_PLATFORM_OPTIONS
 		SetReservedPlatformOptions(PlatformOptions);
@@ -670,9 +662,40 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 		EOS_HPlatform platformHandle = EOS_Platform_Create(&PlatformOptions);
 		if (!platformHandle) {
 			CoronaLuaError(luaStatePointer, "Failed to initialize connection with Epic client.");
+		} else {
+			//PushPluginTableTo(luaStatePointer);
 		}
-		contextPointer->SetPlatformHandle(platformHandle);
+		contextPointer->fPlatformHandle = platformHandle;
 	}
+
+	#ifndef EOS_STEAM_ENABLED
+	auto launcherAuthTypeLaunchArg = CMDLine::Map().find("AUTH_TYPE");
+	auto launcherAuthPasswordLaunchArg = CMDLine::Map().find("AUTH_PASSWORD");
+	if (contextPointer->fPlatformHandle && launcherAuthTypeLaunchArg != CMDLine::End() && launcherAuthPasswordLaunchArg != CMDLine::End()) {
+		std::string launcherAuthType = launcherAuthTypeLaunchArg->second;
+		if (launcherAuthType == "exchangecode") {
+			std::string launcherAuthPassword = launcherAuthPasswordLaunchArg->second;
+			if (!launcherAuthPassword.empty())
+			{
+				contextPointer->fAuthHandle = EOS_Platform_GetAuthInterface(contextPointer->fPlatformHandle);
+
+				EOS_Auth_Credentials Credentials = {};
+				Credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
+
+				EOS_Auth_LoginOptions LoginOptions;
+				memset(&LoginOptions, 0, sizeof(LoginOptions));
+				LoginOptions.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
+				LoginOptions.ScopeFlags |= EOS_EAuthScopeFlags::EOS_AS_NoFlags;
+
+				Credentials.Type = EOS_ELoginCredentialType::EOS_LCT_ExchangeCode;
+				Credentials.Token = launcherAuthPassword.c_str();
+				LoginOptions.Credentials = &Credentials;
+
+				EOS_Auth_Login(contextPointer->fAuthHandle, &LoginOptions, contextPointer, onLoginCallback);
+			}
+		}
+	}
+	#endif
 
 	// We're returning 1 Lua plugin table.
 	return 1;

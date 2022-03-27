@@ -11,7 +11,7 @@
 #import <Foundation/Foundation.h>
 
 
-const std::vector<std::string>& CMDLine::GetCommandLine() {
+const std::vector<std::string>& CMDLine::Get() {
 	static std::vector<std::string> ret;
     static bool toInit = true;
 

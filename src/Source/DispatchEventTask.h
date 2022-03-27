@@ -77,10 +77,11 @@ public:
 	DispatchLoginResponseEventTask();
 	virtual ~DispatchLoginResponseEventTask();
 
-	void AcquireEventDataFrom(const EOS_Auth_LoginCallbackInfo& eosEventData);
+	void AcquireEventDataFrom(const EOS_Auth_LoginCallbackInfo* Data);
 	virtual const char* GetLuaEventName() const;
 	virtual bool PushLuaEventTableTo(lua_State* luaStatePointer) const;
 
 private:
 	EOS_EResult fResult;
+	char fSelectedAccountID[EOS_EPICACCOUNTID_MAX_LENGTH + 1];
 };

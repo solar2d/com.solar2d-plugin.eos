@@ -106,9 +106,15 @@ DispatchLoginResponseEventTask::~DispatchLoginResponseEventTask()
 {
 }
 
-void DispatchLoginResponseEventTask::AcquireEventDataFrom(const EOS_Auth_LoginCallbackInfo& eosEventData)
+void DispatchLoginResponseEventTask::AcquireEventDataFrom(const EOS_Auth_LoginCallbackInfo* eosEventData)
 {
-	fResult = eosEventData.ResultCode;
+	fResult = eosEventData->ResultCode;
+	int sz = 0;
+	if(fResult == EOS_EResult::EOS_Success && eosEventData->SelectedAccountId) {
+		sz = EOS_EPICACCOUNTID_MAX_LENGTH + 1;
+		EOS_EpicAccountId_ToString(eosEventData->SelectedAccountId, fSelectedAccountID, &sz);
+	}
+	fSelectedAccountID[sz] = 0;
 }
 
 const char* DispatchLoginResponseEventTask::GetLuaEventName() const
@@ -127,8 +133,13 @@ bool DispatchLoginResponseEventTask::PushLuaEventTableTo(lua_State* luaStatePoin
 	// Push the event data to Lua.
 	CoronaLuaNewEvent(luaStatePointer, kLuaEventName);
 	lua_pushboolean(luaStatePointer, fResult != EOS_EResult::EOS_Success);
+	if(fResult == EOS_EResult::EOS_Success) {
+		lua_pushstring(luaStatePointer, fSelectedAccountID);
+		lua_setfield(luaStatePointer, -2, "selectedAccountId");
+	}
+	
 	lua_setfield(luaStatePointer, -2, "isError");
-	lua_pushinteger(luaStatePointer, 1); //fResult JOCHEM - TODO
+	lua_pushinteger(luaStatePointer, (int)fResult);
 	lua_setfield(luaStatePointer, -2, "resultCode");
 	return true;
 }

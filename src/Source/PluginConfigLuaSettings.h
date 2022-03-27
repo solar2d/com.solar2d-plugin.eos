@@ -28,8 +28,16 @@ class PluginConfigLuaSettings
 		PluginConfigLuaSettings();
 		virtual ~PluginConfigLuaSettings();
 
+		const char* GetStringEncryptionKey() const;
+		void SetStringEncryptionKey(const char* stringId);
 		const char* GetStringAppId() const;
 		void SetStringAppId(const char* stringId);
+		const char* GetStringProductId() const;
+		void SetStringProductId(const char* stringId);
+		const char* GetStringSandboxId() const;
+		void SetStringSandboxId(const char* stringId);
+		const char* GetStringDeploymentId() const;
+		void SetStringDeploymentId(const char* stringId);
 		const char* GetStringClientId() const;
 		void SetStringClientId(const char* stringId);
 		const char* GetStringClientSecret() const;
@@ -38,7 +46,11 @@ class PluginConfigLuaSettings
 		bool LoadFrom(lua_State* luaStatePointer);
 
 	private:
+		std::string fStringEncryptionKey;
 		std::string fStringAppId;
+		std::string fStringProductId;
+		std::string fStringSandboxId;
+		std::string fStringDeploymentId;
 		std::string fStringClientId;
 		std::string fStringClientSecret;
 };

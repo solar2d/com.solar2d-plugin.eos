@@ -52,6 +52,10 @@ RuntimeContext::RuntimeContext(lua_State* luaStatePointer)
 
 	// Add this class instance to the global collection.
 	sRuntimeContextCollection.insert(this);
+	
+	fAuthHandle = 0;
+	fPlatformHandle = 0;
+	fAccountId = 0;
 }
 
 RuntimeContext::~RuntimeContext()
@@ -68,11 +72,6 @@ RuntimeContext::~RuntimeContext()
 		}
 	}
 
-	// for (auto authIdToken : fAuthIdTokens)
-	// {
-		// EOS_Auth_IdToken_Release(&authIdToken); // JOCHEM TODO
-	// }
-
 	// Remove this class instance from the global collection.
 	sRuntimeContextCollection.erase(this);
 }
@@ -86,24 +85,9 @@ lua_State* RuntimeContext::GetMainLuaState() const
 	return nullptr;
 }
 
-void RuntimeContext::AddAuthIdToken(EOS_Auth_IdToken authIdToken)
-{
-	// fAuthIdTokens.insert(authIdToken); // JOCHEM TODO
-}
-
 std::shared_ptr<LuaEventDispatcher> RuntimeContext::GetLuaEventDispatcher() const
 {
 	return fLuaEventDispatcherPointer;
-}
-
-EOS_PlatformHandle* RuntimeContext::GetPlatformHandle() const
-{
-	return fPlatformHandle;
-}
-
-void RuntimeContext::SetPlatformHandle(EOS_PlatformHandle* platformHandle)
-{
-	 fPlatformHandle = platformHandle;
 }
 
 RuntimeContext* RuntimeContext::GetInstanceBy(lua_State* luaStatePointer)
@@ -254,7 +238,7 @@ void RuntimeContext::OnHandleGlobalEosEventWithGameId(TSteamResultType* eventDat
 	OnHandleGlobalEosEvent<TSteamResultType, TDispatchEventTask>(eventDataPointer);
 }
 
-// void RuntimeContext::OnLoginResponse(LoginResponse_t* eventDataPointer)
-// {
-// 	OnHandleGlobalEosEvent<LoginResponse_t, DispatchLoginResponseEventTask>(eventDataPointer);
-// }
+ void RuntimeContext::OnLoginResponse(const EOS_Auth_LoginCallbackInfo* Data)
+ {
+ 	OnHandleGlobalEosEvent<const EOS_Auth_LoginCallbackInfo*, DispatchLoginResponseEventTask>(&Data);
+ }
