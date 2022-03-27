@@ -61,61 +61,6 @@ static std::thread::id sMainThreadId;
 // Private Static Functions
 //---------------------------------------------------------------------------------
 /**
-  Pushes the EOS plugin table to the top of the Lua stack.
-  @param luaStatePointer Pointer to the Lua state to push the plugin table to.
-  @return Returns true if the plugin table was successfully pushed to the top of the Lua stack.
-
-          Returns false if failed to load the plugin table. In this case, nil will be pushed to
-		  the top of the Lua stack, unless given a null Lua state pointer argument.
- */
-bool PushPluginTableTo(lua_State* luaStatePointer)
-{
-	// Validate.
-	if (!luaStatePointer)
-	{
-		return false;
-	}
-
-	// Fetch the current Lua stack count.
-	int previousLuaStackCount = lua_gettop(luaStatePointer);
-
-	// Call the Lua require() function to push this plugin's table to the top of the stack.
-	bool wasSuccessful = false;
-	lua_getglobal(luaStatePointer, "require");
-	if (lua_isfunction(luaStatePointer, -1))
-	{
-		lua_pushstring(luaStatePointer, "plugin.eos");
-		CoronaLuaDoCall(luaStatePointer, 1, 1);
-		if (lua_istable(luaStatePointer, -1))
-		{
-			wasSuccessful = true;
-		}
-		else
-		{
-			lua_pop(luaStatePointer, 1);
-		}
-	}
-	else
-	{
-		lua_pop(luaStatePointer, 1);
-	}
-
-	// Pop off remaing items above, leaving the plugin's table at the top of the stack.
-	// If we've failed to load the plugin, then push nil instead.
-	if (wasSuccessful)
-	{
-		lua_insert(luaStatePointer, previousLuaStackCount + 1);
-		lua_settop(luaStatePointer, previousLuaStackCount + 1);
-	}
-	else
-	{
-		lua_settop(luaStatePointer, previousLuaStackCount);
-		lua_pushnil(luaStatePointer);
-	}
-	return wasSuccessful;
-}
-
-/**
   Determines if the given Lua state is running under the Corona Simulator.
   @param luaStatePointer Pointer to the Lua state to check.
   @return Returns true if the given Lua state is running under the Corona Simulator.
@@ -565,23 +510,7 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 		lua_setmetatable(luaStatePointer, -2);
 	}
 
-	// // Acquire and handle the EOS app ID.
-	// {
-	// 	// First, check if a EOS app ID has already been assigned to this application.
-	// 	// This can happen when:
-	// 	// - The Corona project has been run more than once in the same app, such as via the Corona Simulator.
-	// 	// - This app was launch via the EOS client, which happens with deployed EOS apps.
-	// 	std::string currentStringId;
-	// 	if (currentStringId == "0")
-	// 	{
-	// 		// Ignore an app ID of zero, which is an invalid ID.
-	// 		// This can happen when launching an app from the Steam client that was not installed by Steam.
-	// 		// Steam also allows us to switch an app ID of zero to a working/real app ID, which we may do down below.
-	// 		currentStringId.erase();
-	// 	}
-
-	// Fetch the EOS app ID configured in the "config.lua" file.
-	// std::string configStringId;
+	// Fetch the EOS properties from the "config.lua" file.
 	PluginConfigLuaSettings configLuaSettings;
 	configLuaSettings.LoadFrom(luaStatePointer);
 
@@ -602,10 +531,15 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 		SDKOptions.OverrideThreadAffinity = nullptr;
 
 		EOS_EResult InitResult = EOS_Initialize(&SDKOptions);
-		if (InitResult != EOS_EResult::EOS_Success)
+		if (InitResult == EOS_EResult::EOS_InvalidParameters)
 		{
-			CoronaLog("WARNING: [EOS SDK] Init Failed!");
+			CoronaLuaError(luaStatePointer, "[EOS SDK] Init Failed! Invalid Parameters");
 			return 0;
+		}
+		else if (InitResult == EOS_EResult::EOS_AlreadyConfigured) // TODO: Apparently this happens the first time the simulator reloads, should probably prevent reaching this state though
+		{
+			CoronaLog("WARNING: [EOS SDK] Init Failed! Already Configured");
+			return 1;
 		}
 
 		CoronaLog("[EOS SDK] Initialized. Setting Logging Callback ...");
@@ -662,8 +596,6 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 		EOS_HPlatform platformHandle = EOS_Platform_Create(&PlatformOptions);
 		if (!platformHandle) {
 			CoronaLuaError(luaStatePointer, "Failed to initialize connection with Epic client.");
-		} else {
-			//PushPluginTableTo(luaStatePointer);
 		}
 		contextPointer->fPlatformHandle = platformHandle;
 	}
