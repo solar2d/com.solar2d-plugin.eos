@@ -63,14 +63,17 @@ RuntimeContext::~RuntimeContext()
 	// Remove our Corona runtime event listeners.
 	fLuaEnterFrameCallback.RemoveFromRuntimeEventListeners("enterFrame");
 
+	EOS_Platform_Release(fPlatformHandle);
+	EOS_Shutdown();
+
 	// Delete our pool of Steam call result handlers.
-	for (auto nextHandlerPointer : fEosCallResultHandlerPool)
-	{
-		if (nextHandlerPointer)
-		{
-			delete nextHandlerPointer;
-		}
-	}
+	// for (auto nextHandlerPointer : fEosCallResultHandlerPool)
+	// {
+	// 	if (nextHandlerPointer)
+	// 	{
+	// 		delete nextHandlerPointer;
+	// 	}
+	// }
 
 	// Remove this class instance from the global collection.
 	sRuntimeContextCollection.erase(this);
