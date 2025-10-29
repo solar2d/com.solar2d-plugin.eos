@@ -1,0 +1,212 @@
+{
+	"artifacts" : 
+	[
+		{
+			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/arm64-v8a/libnative-lib.so"
+		}
+	],
+	"backtrace" : 1,
+	"backtraceGraph" : 
+	{
+		"commands" : 
+		[
+			"add_library",
+			"target_link_libraries",
+			"include_directories"
+		],
+		"files" : 
+		[
+			"CMakeLists.txt"
+		],
+		"nodes" : 
+		[
+			{
+				"file" : 0
+			},
+			{
+				"command" : 0,
+				"file" : 0,
+				"line" : 56,
+				"parent" : 0
+			},
+			{
+				"command" : 1,
+				"file" : 0,
+				"line" : 82,
+				"parent" : 0
+			},
+			{
+				"command" : 2,
+				"file" : 0,
+				"line" : 16,
+				"parent" : 0
+			}
+		]
+	},
+	"compileGroups" : 
+	[
+		{
+			"compileCommandFragments" : 
+			[
+				{
+					"fragment" : "-g -DANDROID -fdata-sections -ffunction-sections -funwind-tables -fstack-protector-strong -no-canonical-prefixes -D_FORTIFY_SOURCE=2 -Wformat -Werror=format-security  -std=c++17 -malign-double -fno-limit-debug-info  -fPIC"
+				}
+			],
+			"defines" : 
+			[
+				{
+					"define" : "native_lib_EXPORTS"
+				}
+			],
+			"includes" : 
+			[
+				{
+					"backtrace" : 3,
+					"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../../../Dependencies/Corona/shared/include"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../../../Dependencies/Corona/shared/include/Corona"
+				},
+				{
+					"backtrace" : 3,
+					"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../../../Dependencies/Corona/shared/include/lua"
+				},
+				{
+					"backtrace" : 3,
+					"isSystem" : true,
+					"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../../../Source"
+				},
+				{
+					"backtrace" : 3,
+					"isSystem" : true,
+					"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../../../Dependencies/Epic/public/epic"
+				}
+			],
+			"language" : "CXX",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6
+			],
+			"sysroot" : 
+			{
+				"path" : "/Users/scottharrison/Library/Android/sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
+			}
+		}
+	],
+	"id" : "native-lib::@6890427a1f51a3e7e1df",
+	"link" : 
+	{
+		"commandFragments" : 
+		[
+			{
+				"fragment" : "-Wl,--build-id=sha1 -Wl,--no-rosegment -Wl,--no-undefined-version -Wl,--fatal-warnings -Wl,--no-undefined -Qunused-arguments",
+				"role" : "flags"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../build/unpacked/Corona/jni/arm64-v8a/libcorona.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../build/unpacked/Corona/jni/arm64-v8a/liblua.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/../../../build/unpacked/eos-sdk/jni/arm64-v8a/libEOSSDK.so",
+				"role" : "libraries"
+			},
+			{
+				"backtrace" : 2,
+				"fragment" : "/Users/scottharrison/Library/Android/sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/sysroot/usr/lib/aarch64-linux-android/23/liblog.so",
+				"role" : "libraries"
+			},
+			{
+				"fragment" : "-latomic -lm",
+				"role" : "libraries"
+			}
+		],
+		"language" : "CXX",
+		"sysroot" : 
+		{
+			"path" : "/Users/scottharrison/Library/Android/sdk/ndk/26.1.10909125/toolchains/llvm/prebuilt/darwin-x86_64/sysroot"
+		}
+	},
+	"name" : "native-lib",
+	"nameOnDisk" : "libnative-lib.so",
+	"paths" : 
+	{
+		"build" : ".",
+		"source" : "."
+	},
+	"sourceGroups" : 
+	[
+		{
+			"name" : "Source Files",
+			"sourceIndexes" : 
+			[
+				0,
+				1,
+				2,
+				3,
+				4,
+				5,
+				6
+			]
+		}
+	],
+	"sources" : 
+	[
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/DispatchEventTask.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/EosLuaInterface.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/LuaEventDispatcher.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PluginConfigLuaSettings.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/RuntimeContext.cpp",
+			"sourceGroupIndex" : 0
+		},
+		{
+			"backtrace" : 1,
+			"compileGroupIndex" : 0,
+			"path" : "native-lib.cpp",
+			"sourceGroupIndex" : 0
+		}
+	],
+	"type" : "SHARED_LIBRARY"
+}

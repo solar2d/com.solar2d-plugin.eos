@@ -1,0 +1,1 @@
+/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/arm64-v8a

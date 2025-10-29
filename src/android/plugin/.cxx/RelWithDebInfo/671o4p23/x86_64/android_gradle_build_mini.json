@@ -1,0 +1,31 @@
+{
+  "buildFiles": [
+    "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/scottharrison/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/RelWithDebInfo/671o4p23/x86_64",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/scottharrison/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/RelWithDebInfo/671o4p23/x86_64",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "native-lib::@6890427a1f51a3e7e1df": {
+      "artifactName": "native-lib",
+      "abi": "x86_64",
+      "output": "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so",
+      "runtimeFiles": [
+        "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/unpacked/Corona/jni/x86_64/libcorona.so",
+        "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/unpacked/Corona/jni/x86_64/liblua.so",
+        "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/unpacked/eos-sdk/jni/x86_64/libEOSSDK.so"
+      ]
+    }
+  }
+}

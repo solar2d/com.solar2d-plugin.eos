@@ -1,0 +1,3 @@
+/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/native-lib.dir
+/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/edit_cache.dir
+/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/rebuild_cache.dir

@@ -1,0 +1,31 @@
+{
+  "buildFiles": [
+    "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp/CMakeLists.txt"
+  ],
+  "cleanCommandsComponents": [
+    [
+      "/Users/scottharrison/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+      "-C",
+      "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86",
+      "clean"
+    ]
+  ],
+  "buildTargetsCommandComponents": [
+    "/Users/scottharrison/Library/Android/sdk/cmake/3.22.1/bin/ninja",
+    "-C",
+    "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86",
+    "{LIST_OF_TARGETS_TO_BUILD}"
+  ],
+  "libraries": {
+    "native-lib::@6890427a1f51a3e7e1df": {
+      "artifactName": "native-lib",
+      "abi": "x86",
+      "output": "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/x86/libnative-lib.so",
+      "runtimeFiles": [
+        "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/unpacked/Corona/jni/x86/libcorona.so",
+        "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/unpacked/Corona/jni/x86/liblua.so",
+        "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/unpacked/eos-sdk/jni/x86/libEOSSDK.so"
+      ]
+    }
+  }
+}
