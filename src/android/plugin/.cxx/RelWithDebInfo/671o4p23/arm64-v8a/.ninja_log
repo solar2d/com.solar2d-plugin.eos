@@ -7,3 +7,7 @@
 4	1110	1761748003663831929	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/RuntimeContext.cpp.o	79d7a4d0da975caa
 0	1182	1761748003736464628	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/DispatchEventTask.cpp.o	e50022fd43bf8eb2
 1182	1231	1761748003786647414	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/arm64-v8a/libnative-lib.so	c4f18aff4d625bed
+25	754	1761797653621613623	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp.o	dd3366cf1ee73cb7
+27	768	1761797653644276156	CMakeFiles/native-lib.dir/native-lib.cpp.o	d5a6d085c5ebd996
+27	887	1761797653762675245	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/RuntimeContext.cpp.o	79d7a4d0da975caa
+887	1061	1761797653933979410	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/arm64-v8a/libnative-lib.so	c4f18aff4d625bed

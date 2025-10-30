@@ -61,6 +61,13 @@ android {
     }
     packagingOptions {
         exclude "lib/arm64-v8a/libcorona.so"
+        exclude "lib/arm64-v8a/liblua.so"
+        exclude "lib/armeabi-v7a/libcorona.so"
+        exclude "lib/armeabi-v7a/liblua.so"
+        exclude "lib/x86/libcorona.so"
+        exclude "lib/x86/liblua.so"
+        exclude "lib/x86_64/libcorona.so"
+        exclude "lib/x86_64/liblua.so"
     }
 }
 
@@ -70,7 +77,7 @@ repositories {
     }
 }
 dependencies {
-    implementation ':Corona@aar'
+    compileOnly ':Corona@aar'
 
     implementation 'androidx.appcompat:appcompat:1.2.0'
     implementation 'androidx.constraintlayout:constraintlayout:2.2.1'
@@ -82,19 +89,33 @@ dependencies {
 
 def buildDirectory = getLayout().getBuildDirectory().asFile.get()
 tasks.register("extractPluginJar") {
-    group "Solar2Dev"
+    group = "Solar2Dev"
     dependsOn assembleRelease
     doLast {
+        def aarFile = file("$buildDirectory/outputs/aar/${project.name}-release.aar")
+        def tempDir = file("$buildDirectory/tmp/extracted-aar")
+        def outputDir = file("$buildDirectory/outputs/")
+        def packageName = android.namespace
+
         copy {
-            from {
-                zipTree("$buildDirectory/outputs/aar/${project.name}-release.aar").matching {
-                    include 'classes.jar'
-                }.singleFile
-            }
-            into "$buildDirectory/outputs/"
-            String packageName = android.namespace
-            rename "classes.jar", "${packageName}.jar"
+            from zipTree(aarFile)
+            into tempDir
         }
+
+        // Remove Corona classes from extracted jar
+        def jarFile = file("$tempDir/classes.jar")
+        def strippedJar = file("$outputDir/${packageName}.jar")
+
+        ant.jar(update: false, destfile: strippedJar) {
+            zipfileset(src: jarFile) {
+                // Exclude Corona packages (adjust prefix as needed)
+                exclude(name: "com/ansca/**")
+                exclude(name: "plugin/corona/**")
+            }
+        }
+
+        delete tempDir
+        println "✅ Created stripped jar at: ${strippedJar}"
     }
 }
 

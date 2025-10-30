@@ -7,3 +7,8 @@
 1	698	1761748004870768701	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/RuntimeContext.cpp.o	b3d2365e4d79b76c
 0	739	1761748004911120738	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/DispatchEventTask.cpp.o	549d1cc59917b382
 739	793	1761748004966634065	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/armeabi-v7a/libnative-lib.so	8da82e984cef0f5e
+7	77	1761797654083229669	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/LuaEventDispatcher.cpp.o	d0ed96c3b6f0a4e0
+7	352	1761797654353378937	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp.o	4d11d25c933b81b5
+7	437	1761797654442108941	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/EosLuaInterface.cpp.o	89b60cb9cd1ec385
+7	568	1761797654573300799	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/DispatchEventTask.cpp.o	549d1cc59917b382
+568	632	1761797654637408142	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/armeabi-v7a/libnative-lib.so	8da82e984cef0f5e

@@ -1,9 +1,14 @@
 # ninja log v5
-1	148	1761748006701502649	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/LuaEventDispatcher.cpp.o	6c547becd9413899
-2	1097	1761748007644774786	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PluginConfigLuaSettings.cpp.o	cbe0302e363cf3bd
-2	1129	1761748007678225741	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp.o	26c74df4e7767f1e
-3	1177	1761748007730186776	CMakeFiles/native-lib.dir/native-lib.cpp.o	af7d2e3aa93cc62c
+1467	1518	1761748008072847652	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	330a1e65cff3861f
+1	1467	1761748008021214616	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/DispatchEventTask.cpp.o	220c4a1f7869811d
 2	1296	1761748007846450471	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/EosLuaInterface.cpp.o	4db705e65659b57b
 3	1394	1761748007947468917	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/RuntimeContext.cpp.o	cb6c61f05c6e25a4
-1	1467	1761748008021214616	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/DispatchEventTask.cpp.o	220c4a1f7869811d
-1467	1518	1761748008072847652	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	330a1e65cff3861f
+1	148	1761748006701502649	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/LuaEventDispatcher.cpp.o	6c547becd9413899
+3	1177	1761748007730186776	CMakeFiles/native-lib.dir/native-lib.cpp.o	af7d2e3aa93cc62c
+2	1129	1761748007678225741	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp.o	26c74df4e7767f1e
+2	1097	1761748007644774786	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PluginConfigLuaSettings.cpp.o	cbe0302e363cf3bd
+3	74	1761797655639419183	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/LuaEventDispatcher.cpp.o	6c547becd9413899
+3	335	1761797655898897935	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PluginConfigLuaSettings.cpp.o	cbe0302e363cf3bd
+3	347	1761797655909991535	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp.o	26c74df4e7767f1e
+3	364	1761797655927205310	CMakeFiles/native-lib.dir/native-lib.cpp.o	af7d2e3aa93cc62c
+364	432	1761797655995341492	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	330a1e65cff3861f
