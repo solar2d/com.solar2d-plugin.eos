@@ -37,7 +37,7 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeSystem.cmake"
+			"path" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeSystem.cmake"
 		},
 		{
 			"isExternal" : true,
@@ -303,7 +303,7 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCCompiler.cmake"
+			"path" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCCompiler.cmake"
 		},
 		{
 			"isCMake" : true,
@@ -537,7 +537,7 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCXXCompiler.cmake"
+			"path" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCXXCompiler.cmake"
 		},
 		{
 			"isCMake" : true,
@@ -688,7 +688,7 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCCompiler.cmake"
+			"path" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCCompiler.cmake"
 		},
 		{
 			"isCMake" : true,
@@ -782,14 +782,14 @@
 		},
 		{
 			"isGenerated" : true,
-			"path" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCXXCompiler.cmake"
+			"path" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86/CMakeFiles/3.22.1-g37088a8/CMakeCXXCompiler.cmake"
 		}
 	],
 	"kind" : "cmakeFiles",
 	"paths" : 
 	{
-		"build" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86",
-		"source" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp"
+		"build" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86",
+		"source" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/src/main/cpp"
 	},
 	"version" : 
 	{

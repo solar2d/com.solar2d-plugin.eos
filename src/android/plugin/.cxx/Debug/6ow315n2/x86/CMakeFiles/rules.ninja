@@ -42,7 +42,7 @@ rule CUSTOM_COMMAND
 # Rule for re-running cmake.
 
 rule RERUN_CMAKE
-  command = /Users/scottharrison/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp -B/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86
+  command = /Users/scottharrison/Library/Android/sdk/cmake/3.22.1/bin/cmake --regenerate-during-build -S/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/src/main/cpp -B/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86
   description = Re-running CMake...
   generator = 1
 

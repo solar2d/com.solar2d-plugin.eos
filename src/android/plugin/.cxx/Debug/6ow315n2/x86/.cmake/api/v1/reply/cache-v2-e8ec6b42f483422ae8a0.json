@@ -163,7 +163,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86"
+			"value" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86"
 		},
 		{
 			"name" : "CMAKE_CACHE_MAJOR_VERSION",
@@ -727,7 +727,7 @@
 				}
 			],
 			"type" : "INTERNAL",
-			"value" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp"
+			"value" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/src/main/cpp"
 		},
 		{
 			"name" : "CMAKE_INSTALL_PREFIX",
@@ -763,7 +763,7 @@
 				}
 			],
 			"type" : "UNINITIALIZED",
-			"value" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/x86"
+			"value" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/x86"
 		},
 		{
 			"name" : "CMAKE_LINKER",
@@ -1035,7 +1035,7 @@
 				}
 			],
 			"type" : "UNINITIALIZED",
-			"value" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/x86"
+			"value" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/x86"
 		},
 		{
 			"name" : "CMAKE_SHARED_LINKER_FLAGS",
@@ -1319,7 +1319,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86"
+			"value" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/Debug/6ow315n2/x86"
 		},
 		{
 			"name" : "EOSSDK_IS_TOP_LEVEL",
@@ -1343,7 +1343,7 @@
 				}
 			],
 			"type" : "STATIC",
-			"value" : "/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/src/main/cpp"
+			"value" : "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/src/main/cpp"
 		},
 		{
 			"name" : "log-lib",

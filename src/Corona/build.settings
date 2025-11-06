@@ -21,4 +21,10 @@ settings =
 			UILaunchStoryboardName = "LaunchScreen",
 		},
 	},
+	plugins =
+	{
+		["plugin.eos"] = {
+            publisherId = "com.solar2d",
+        },
+	},
 }
