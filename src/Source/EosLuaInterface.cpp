@@ -632,3 +632,59 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 	// We're returning 1 Lua plugin table.
 	return 1;
 }
+
+//---------------------------------------------------------------------------------
+// Android JNI Bridge Functions
+//---------------------------------------------------------------------------------
+// These functions are called from native-lib.cpp on Android.
+// On desktop, the equivalent functionality is handled directly in luaopen_plugin_eos.
+#ifdef ANDROID
+#include "EosLuaInterface.h"
+
+bool InitializeSDK(lua_State* luaStatePointer, EOS_InitializeOptions& options)
+{
+	EOS_EResult InitResult = EOS_Initialize(&options);
+	if (InitResult == EOS_EResult::EOS_InvalidParameters)
+	{
+		CoronaLog("ERROR: [EOS SDK] Init Failed! Invalid Parameters");
+		return false;
+	}
+	else if (InitResult == EOS_EResult::EOS_AlreadyConfigured)
+	{
+		CoronaLog("WARNING: [EOS SDK] Already Configured");
+		return true;
+	}
+	else if (InitResult != EOS_EResult::EOS_Success)
+	{
+		CoronaLog("ERROR: [EOS SDK] Init Failed! Result: %s", EOS_EResult_ToString(InitResult));
+		return false;
+	}
+
+	CoronaLog("[EOS SDK] Initialized. Setting Logging Callback ...");
+	EOS_EResult SetLogCallbackResult = EOS_Logging_SetCallback(&onEOSLogMessageReceived);
+	if (SetLogCallbackResult != EOS_EResult::EOS_Success)
+	{
+		CoronaLog("WARNING: [EOS SDK] Set Logging Callback Failed!");
+	}
+	else
+	{
+		CoronaLog("[EOS SDK] Logging Callback Set");
+		EOS_Logging_SetLogLevel(EOS_ELogCategory::EOS_LC_ALL_CATEGORIES, EOS_ELogLevel::EOS_LOG_Warning);
+	}
+
+	return true;
+}
+
+// Ecom functions - not yet implemented for Android
+int OnLoadProducts(lua_State* luaStatePointer) { return 0; }
+int OnPurchaseProduct(lua_State* luaStatePointer) { return 0; }
+int OnRestorePurchases(lua_State* luaStatePointer) { return 0; }
+int OnFinishTransaction(lua_State* luaStatePointer) { return 0; }
+
+// Auth functions - on Android these are handled by the Java layer via
+// direct JNI methods (CreatePlatform, LoginWithAccountPortal, Logout, etc.)
+bool OnIsLoggedOn(lua_State* luaStatePointer) { return false; }
+bool OnLoginWithAccountPortal(lua_State* luaStatePointer) { return false; }
+bool OnLogout(lua_State* luaStatePointer) { return false; }
+
+#endif // ANDROID

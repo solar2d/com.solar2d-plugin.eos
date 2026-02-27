@@ -9,6 +9,13 @@
 
 #include "PlatformCommandLine.h"
 
+#ifdef ANDROID
+const std::vector<std::string>& CMDLine::Get() {
+	static std::vector<std::string> ret;
+	return ret;
+}
+#endif
+
 const std::map<std::string, std::string>& CMDLine::Map() {
 	static std::map<std::string, std::string> ret;
     static bool toInit = true;

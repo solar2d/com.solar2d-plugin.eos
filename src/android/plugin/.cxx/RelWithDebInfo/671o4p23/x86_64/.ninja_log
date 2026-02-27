@@ -1,14 +1,12 @@
 # ninja log v5
-1467	1518	1761748008072847652	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	330a1e65cff3861f
-1	1467	1761748008021214616	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/DispatchEventTask.cpp.o	220c4a1f7869811d
-2	1296	1761748007846450471	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/EosLuaInterface.cpp.o	4db705e65659b57b
-3	1394	1761748007947468917	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/RuntimeContext.cpp.o	cb6c61f05c6e25a4
-1	148	1761748006701502649	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/LuaEventDispatcher.cpp.o	6c547becd9413899
-3	1177	1761748007730186776	CMakeFiles/native-lib.dir/native-lib.cpp.o	af7d2e3aa93cc62c
-2	1129	1761748007678225741	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp.o	26c74df4e7767f1e
-2	1097	1761748007644774786	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PluginConfigLuaSettings.cpp.o	cbe0302e363cf3bd
-3	74	1761797655639419183	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/LuaEventDispatcher.cpp.o	6c547becd9413899
-3	335	1761797655898897935	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PluginConfigLuaSettings.cpp.o	cbe0302e363cf3bd
-3	347	1761797655909991535	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/Source/PlatformCommandLine.cpp.o	26c74df4e7767f1e
-3	364	1761797655927205310	CMakeFiles/native-lib.dir/native-lib.cpp.o	af7d2e3aa93cc62c
-364	432	1761797655995341492	/Users/scottharrison/Desktop/com.tragsoft-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	330a1e65cff3861f
+0	60	1771987439952581330	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/BaseEosCallResultHandler.cpp.o	6dd0aed8b1d97a28
+2	90	1771987439981606749	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/LuaEventDispatcher.cpp.o	aedfe6638a10b1eb
+5	533	1771987440419871500	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/PluginConfigLuaSettings.cpp.o	69392244efbdf9a9
+3	535	1771987440422769096	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/DispatchEventTask.cpp.o	e8c8fcc3a717c073
+4	539	1771987440427924243	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/PlatformCommandLine.cpp.o	c7a3ea1a56ee2db8
+4	595	1771987440485604162	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/EosLuaInterface.cpp.o	fa42a0021b5a1d43
+6	670	1771987440560801616	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/RuntimeContext.cpp.o	d2839362438bbb56
+2	264	1772069061407319916	CMakeFiles/native-lib.dir/native-lib.cpp.o	1f01d20baf2a788d
+4	244	1772070166679810469	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/PlatformCommandLine.cpp.o	c7a3ea1a56ee2db8
+1	383	1772072507729903958	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/Source/EosLuaInterface.cpp.o	fa42a0021b5a1d43
+383	432	1772072507778303941	/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	1a05bc89b86defb3
