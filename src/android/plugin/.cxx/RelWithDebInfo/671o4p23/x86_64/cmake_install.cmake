@@ -1,4 +1,4 @@
-# Install script for directory: /Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/src/main/cpp
+# Install script for directory: /Users/scottharrison/Desktop/epic/com.solar2d-plugin.eos/src/android/plugin/src/main/cpp
 
 # Set the install prefix
 if(NOT DEFINED CMAKE_INSTALL_PREFIX)
@@ -50,5 +50,5 @@ endif()
 
 string(REPLACE ";" "\n" CMAKE_INSTALL_MANIFEST_CONTENT
        "${CMAKE_INSTALL_MANIFEST_FILES}")
-file(WRITE "/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/.cxx/RelWithDebInfo/671o4p23/x86_64/${CMAKE_INSTALL_MANIFEST}"
+file(WRITE "/Users/scottharrison/Desktop/epic/com.solar2d-plugin.eos/src/android/plugin/.cxx/RelWithDebInfo/671o4p23/x86_64/${CMAKE_INSTALL_MANIFEST}"
      "${CMAKE_INSTALL_MANIFEST_CONTENT}")

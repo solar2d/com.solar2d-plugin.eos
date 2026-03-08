@@ -85,3 +85,62 @@ private:
 	EOS_EResult fResult;
 	char fSelectedAccountID[EOS_EPICACCOUNTID_MAX_LENGTH + 1];
 };
+
+
+/** Holds data for a single product/offer to dispatch to Lua. */
+struct ProductInfo
+{
+	std::string productIdentifier;
+	std::string localizedPrice;
+	std::string title;
+	std::string description;
+};
+
+/** Holds data for a single transaction (purchase/restore result) to dispatch to Lua. */
+struct TransactionInfo
+{
+	std::string productIdentifier;
+	std::string state;   // "purchased", "cancelled", "failed", "restored", "restoreCompleted"
+	std::string receipt;  // Transaction ID from EOS checkout
+};
+
+/** Dispatches a "loadProducts" event and product data array to Lua. */
+class DispatchLoadProductsEventTask : public BaseDispatchEventTask
+{
+public:
+	static const char kLuaEventName[];
+
+	DispatchLoadProductsEventTask();
+	virtual ~DispatchLoadProductsEventTask();
+
+	void SetIsError(bool isError);
+	void SetErrorString(const std::string& errorString);
+	void AddProduct(const ProductInfo& product);
+
+	virtual const char* GetLuaEventName() const;
+	virtual bool PushLuaEventTableTo(lua_State* luaStatePointer) const;
+
+private:
+	bool fIsError;
+	std::string fErrorString;
+	std::vector<ProductInfo> fProducts;
+};
+
+
+/** Dispatches a "storeTransaction" event and transaction data array to Lua. */
+class DispatchStoreTransactionEventTask : public BaseDispatchEventTask
+{
+public:
+	static const char kLuaEventName[];
+
+	DispatchStoreTransactionEventTask();
+	virtual ~DispatchStoreTransactionEventTask();
+
+	void AddTransaction(const TransactionInfo& transaction);
+
+	virtual const char* GetLuaEventName() const;
+	virtual bool PushLuaEventTableTo(lua_State* luaStatePointer) const;
+
+private:
+	std::vector<TransactionInfo> fTransactions;
+};

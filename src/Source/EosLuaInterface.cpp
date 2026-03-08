@@ -14,6 +14,8 @@
 #include "PluginConfigLuaSettings.h"
 #include "RuntimeContext.h"
 #include <cmath>
+#include <map>
+#include <set>
 #include <sstream>
 #include <stdint.h>
 
@@ -28,6 +30,7 @@ extern "C"
 #include "eos_ui.h"
 #include "eos_logging.h"
 #include "eos_auth.h"
+#include "eos_ecom.h"
 #include "PlatformCommandLine.h"
 
 #if ALLOW_RESERVED_PLATFORM_OPTIONS
@@ -130,6 +133,7 @@ void EOS_CALL onLoginCallback(const EOS_Auth_LoginCallbackInfo* Data)
 //---------------------------------------------------------------------------------
 // Lua API Handlers
 //---------------------------------------------------------------------------------
+#ifndef ANDROID
 /** UserInfo eos.getAuthIdToken() */
 int OnGetAuthIdToken(lua_State* luaStatePointer)
 {
@@ -163,7 +167,9 @@ int OnGetAuthIdToken(lua_State* luaStatePointer)
 		return 0;
 	}
 }
+#endif // !ANDROID
 
+#ifndef ANDROID
 /** bool eos.setNotificationPosition(positionName) */
 int OnSetNotificationPosition(lua_State* luaStatePointer)
 {
@@ -632,6 +638,7 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 	// We're returning 1 Lua plugin table.
 	return 1;
 }
+#endif // !ANDROID
 
 //---------------------------------------------------------------------------------
 // Android JNI Bridge Functions
@@ -675,9 +682,460 @@ bool InitializeSDK(lua_State* luaStatePointer, EOS_InitializeOptions& options)
 	return true;
 }
 
-// Ecom functions - not yet implemented for Android
-int OnLoadProducts(lua_State* luaStatePointer) { return 0; }
-int OnPurchaseProduct(lua_State* luaStatePointer) { return 0; }
+// Ecom functions for Android
+// Forward declarations for helpers defined in native-lib.cpp
+extern EOS_HPlatform PlatformHandle;
+extern EOS_EpicAccountId LocalUserId;
+extern std::shared_ptr<LuaEventDispatcher>& GetAndroidLuaEventDispatcher();
+extern void QueueAndroidEvent(std::shared_ptr<BaseDispatchEventTask> task);
+
+// Map from product identifier (catalog item ID) → offer ID
+// Populated during OnQueryOffersComplete, used by OnPurchaseProduct to look up
+// the correct offer ID for EOS_Ecom_Checkout (which requires offer IDs, not catalog item IDs).
+static std::map<std::string, std::string> sCatalogItemToOfferIdMap;
+
+/** Context passed through EOS_Ecom_QueryOffers callback to carry requested offer IDs */
+struct QueryOffersContext {
+    std::vector<std::string> requestedOfferIds;
+};
+
+/** Helper: Format price from EOS Ecom offer data into a localized price string */
+static std::string FormatOfferPrice(const EOS_Ecom_CatalogOffer* offer)
+{
+    if (!offer || offer->PriceResult != EOS_EResult::EOS_Success)
+    {
+        return "N/A";
+    }
+
+    uint64_t price = offer->CurrentPrice64;
+    uint32_t decimalPoint = offer->DecimalPoint;
+    std::string currencyCode = offer->CurrencyCode ? offer->CurrencyCode : "";
+
+    // Format price with decimal point
+    // e.g. price=299, decimalPoint=2 → "2.99"
+    std::string priceStr;
+    if (decimalPoint > 0)
+    {
+        uint64_t divisor = 1;
+        for (uint32_t d = 0; d < decimalPoint; d++) divisor *= 10;
+        uint64_t whole = price / divisor;
+        uint64_t frac = price % divisor;
+
+        std::ostringstream oss;
+        oss << whole << ".";
+        // Pad fractional part with leading zeros
+        std::string fracStr = std::to_string(frac);
+        while (fracStr.length() < decimalPoint) fracStr = "0" + fracStr;
+        oss << fracStr;
+        priceStr = oss.str();
+    }
+    else
+    {
+        priceStr = std::to_string(price);
+    }
+
+    // Add currency symbol for common currencies
+    if (currencyCode == "USD") return "$" + priceStr;
+    else if (currencyCode == "EUR") return "\xE2\x82\xAC" + priceStr; // € in UTF-8
+    else if (currencyCode == "GBP") return "\xC2\xA3" + priceStr;     // £ in UTF-8
+    else if (currencyCode == "JPY") return "\xC2\xA5" + priceStr;     // ¥ in UTF-8
+    else if (currencyCode == "CAD") return "CA$" + priceStr;
+    else if (currencyCode == "AUD") return "A$" + priceStr;
+    else if (currencyCode == "BRL") return "R$" + priceStr;
+    else if (currencyCode == "MXN") return "MX$" + priceStr;
+    else if (!currencyCode.empty()) return priceStr + " " + currencyCode;
+    else return priceStr;
+}
+
+/** EOS Ecom QueryOffers completion callback - runs on EOS SDK thread */
+static void EOS_CALL OnQueryOffersComplete(const EOS_Ecom_QueryOffersCallbackInfo* Data)
+{
+    auto context = static_cast<QueryOffersContext*>(Data->ClientData);
+    auto& dispatcher = GetAndroidLuaEventDispatcher();
+
+    auto task = std::make_shared<DispatchLoadProductsEventTask>();
+    task->SetLuaEventDispatcher(dispatcher);
+
+    if (Data->ResultCode != EOS_EResult::EOS_Success)
+    {
+        CoronaLog("[EOS_DEBUG] OnQueryOffersComplete: FAILED result=%s", EOS_EResult_ToString(Data->ResultCode));
+        task->SetIsError(true);
+        task->SetErrorString(EOS_EResult_ToString(Data->ResultCode));
+    }
+    else
+    {
+        EOS_HEcom EcomHandle = EOS_Platform_GetEcomInterface(PlatformHandle);
+
+        EOS_Ecom_GetOfferCountOptions CountOptions = {};
+        CountOptions.ApiVersion = EOS_ECOM_GETOFFERCOUNT_API_LATEST;
+        CountOptions.LocalUserId = LocalUserId;
+        uint32_t offerCount = EOS_Ecom_GetOfferCount(EcomHandle, &CountOptions);
+
+        CoronaLog("[EOS_DEBUG] OnQueryOffersComplete: SUCCESS, %u offers in catalog, %d requested",
+                  offerCount, (int)context->requestedOfferIds.size());
+
+        // Build a set of requested IDs for fast lookup (and track which have been matched)
+        std::set<std::string> requestedSet(context->requestedOfferIds.begin(),
+                                            context->requestedOfferIds.end());
+        std::set<std::string> matchedSet;
+
+        int matchedCount = 0;
+        for (uint32_t i = 0; i < offerCount; i++)
+        {
+            EOS_Ecom_CopyOfferByIndexOptions CopyOptions = {};
+            CopyOptions.ApiVersion = EOS_ECOM_COPYOFFERBYINDEX_API_LATEST;
+            CopyOptions.LocalUserId = LocalUserId;
+            CopyOptions.OfferIndex = i;
+
+            EOS_Ecom_CatalogOffer* offer = nullptr;
+            EOS_EResult copyResult = EOS_Ecom_CopyOfferByIndex(EcomHandle, &CopyOptions, &offer);
+            if (copyResult != EOS_EResult::EOS_Success || !offer)
+            {
+                CoronaLog("[EOS_DEBUG]   offer[%u]: CopyOfferByIndex failed: %s", i, EOS_EResult_ToString(copyResult));
+                continue;
+            }
+
+            std::string offerId = offer->Id ? offer->Id : "";
+            std::string offerTitle = offer->TitleText ? offer->TitleText : "(null)";
+
+            // Log every offer we see for debugging
+            CoronaLog("[EOS_DEBUG]   catalog offer[%u]: id='%s' title='%s' available=%d price=%s",
+                      i, offerId.c_str(), offerTitle.c_str(),
+                      (int)offer->bAvailableForPurchase,
+                      FormatOfferPrice(offer).c_str());
+
+            // Also enumerate catalog items within this offer for debugging and matching
+            EOS_Ecom_GetOfferItemCountOptions ItemCountOptions = {};
+            ItemCountOptions.ApiVersion = EOS_ECOM_GETOFFERITEMCOUNT_API_LATEST;
+            ItemCountOptions.LocalUserId = LocalUserId;
+            ItemCountOptions.OfferId = offer->Id;
+            uint32_t itemCount = EOS_Ecom_GetOfferItemCount(EcomHandle, &ItemCountOptions);
+
+            CoronaLog("[EOS_DEBUG]     offer '%s' contains %u catalog items:", offerId.c_str(), itemCount);
+
+            for (uint32_t j = 0; j < itemCount; j++)
+            {
+                EOS_Ecom_CopyOfferItemByIndexOptions ItemCopyOptions = {};
+                ItemCopyOptions.ApiVersion = EOS_ECOM_COPYOFFERITEMBYINDEX_API_LATEST;
+                ItemCopyOptions.LocalUserId = LocalUserId;
+                ItemCopyOptions.OfferId = offer->Id;
+                ItemCopyOptions.ItemIndex = j;
+
+                EOS_Ecom_CatalogItem* item = nullptr;
+                EOS_EResult itemResult = EOS_Ecom_CopyOfferItemByIndex(EcomHandle, &ItemCopyOptions, &item);
+                if (itemResult == EOS_EResult::EOS_Success && item)
+                {
+                    std::string itemId = item->Id ? item->Id : "";
+                    CoronaLog("[EOS_DEBUG]       item[%u]: id='%s' title='%s' entitlement='%s' type=%d",
+                              j, itemId.c_str(),
+                              item->TitleText ? item->TitleText : "(null)",
+                              item->EntitlementName ? item->EntitlementName : "(null)",
+                              (int)item->ItemType);
+
+                    // Always record the catalog item → offer ID mapping for purchase lookups
+                    if (!itemId.empty() && !offerId.empty())
+                    {
+                        sCatalogItemToOfferIdMap[itemId] = offerId;
+                    }
+
+                    // Check if any requested ID matches this catalog item ID
+                    if (!requestedSet.empty() && requestedSet.count(itemId) > 0 && matchedSet.count(itemId) == 0)
+                    {
+                        ProductInfo product;
+                        product.productIdentifier = itemId; // Use the catalog item ID as the product identifier
+                        product.title = item->TitleText ? item->TitleText : offerTitle;
+                        product.description = item->DescriptionText ? item->DescriptionText : "";
+                        product.localizedPrice = FormatOfferPrice(offer); // Use the parent offer's price
+
+                        CoronaLog("[EOS_DEBUG]       MATCHED catalog item by ID: id='%s' title='%s' price='%s' (offerId='%s')",
+                                  product.productIdentifier.c_str(),
+                                  product.title.c_str(),
+                                  product.localizedPrice.c_str(),
+                                  offerId.c_str());
+
+                        task->AddProduct(product);
+                        matchedSet.insert(itemId);
+                        matchedCount++;
+                    }
+
+                    EOS_Ecom_CatalogItem_Release(item);
+                }
+                else
+                {
+                    CoronaLog("[EOS_DEBUG]       item[%u]: CopyOfferItemByIndex failed: %s", j, EOS_EResult_ToString(itemResult));
+                }
+            }
+
+            // Also check if the offer ID itself was requested (original matching logic)
+            bool isOfferRequested = false;
+            if (requestedSet.empty())
+            {
+                // No filter — return all offers
+                isOfferRequested = true;
+            }
+            else if (requestedSet.count(offerId) > 0 && matchedSet.count(offerId) == 0)
+            {
+                isOfferRequested = true;
+            }
+
+            if (isOfferRequested)
+            {
+                ProductInfo product;
+                product.productIdentifier = offerId;
+                product.title = offer->TitleText ? offer->TitleText : "";
+                product.description = offer->DescriptionText ? offer->DescriptionText : "";
+                product.localizedPrice = FormatOfferPrice(offer);
+
+                CoronaLog("[EOS_DEBUG]   MATCHED offer by ID: id='%s' title='%s' price='%s'",
+                          product.productIdentifier.c_str(),
+                          product.title.c_str(),
+                          product.localizedPrice.c_str());
+
+                task->AddProduct(product);
+                matchedSet.insert(offerId);
+                matchedCount++;
+            }
+
+            EOS_Ecom_CatalogOffer_Release(offer);
+        }
+
+        // Log any requested IDs that didn't match anything
+        for (const auto& reqId : context->requestedOfferIds)
+        {
+            if (matchedSet.count(reqId) == 0)
+            {
+                CoronaLog("[EOS_DEBUG]   UNMATCHED requested ID: '%s' (not found as offer ID or catalog item ID)", reqId.c_str());
+            }
+        }
+
+        CoronaLog("[EOS_DEBUG] OnQueryOffersComplete: returning %d matched products to Lua (from %u offers, %d requested)",
+                  matchedCount, offerCount, (int)context->requestedOfferIds.size());
+    }
+
+    // Queue the loadProducts event for dispatch on the Corona thread via enterFrame
+    QueueAndroidEvent(task);
+
+    // Clean up the context
+    delete context;
+}
+
+/** eos.loadProducts(identifiers, listener) - Android implementation using EOS Ecom API */
+int OnLoadProducts(lua_State* luaStatePointer)
+{
+    CoronaLog("[EOS_DEBUG] OnLoadProducts: called");
+
+    if (!PlatformHandle)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnLoadProducts: PlatformHandle is null");
+        // Dispatch error event immediately
+        auto& dispatcher = GetAndroidLuaEventDispatcher();
+        if (dispatcher)
+        {
+            auto task = std::make_shared<DispatchLoadProductsEventTask>();
+            task->SetLuaEventDispatcher(dispatcher);
+            task->SetIsError(true);
+            task->SetErrorString("Platform not initialized");
+            QueueAndroidEvent(task);
+        }
+        return 0;
+    }
+
+    if (!LocalUserId)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnLoadProducts: LocalUserId is null (not logged in)");
+        auto& dispatcher = GetAndroidLuaEventDispatcher();
+        if (dispatcher)
+        {
+            auto task = std::make_shared<DispatchLoadProductsEventTask>();
+            task->SetLuaEventDispatcher(dispatcher);
+            task->SetIsError(true);
+            task->SetErrorString("Not logged in");
+            QueueAndroidEvent(task);
+        }
+        return 0;
+    }
+
+    // Read product identifiers from Lua stack arg 1 (table of strings)
+    auto context = new QueryOffersContext();
+    if (lua_istable(luaStatePointer, 1))
+    {
+        int tableLen = (int)lua_objlen(luaStatePointer, 1);
+        CoronaLog("[EOS_DEBUG] OnLoadProducts: reading %d product identifiers from Lua", tableLen);
+        for (int i = 1; i <= tableLen; i++)
+        {
+            lua_rawgeti(luaStatePointer, 1, i);
+            if (lua_isstring(luaStatePointer, -1))
+            {
+                const char* id = lua_tostring(luaStatePointer, -1);
+                if (id)
+                {
+                    context->requestedOfferIds.push_back(id);
+                    CoronaLog("[EOS_DEBUG]   identifier[%d] = %s", i, id);
+                }
+            }
+            lua_pop(luaStatePointer, 1);
+        }
+    }
+    else
+    {
+        CoronaLog("[EOS_DEBUG] OnLoadProducts: arg 1 is not a table (type=%d), will query all offers",
+                  lua_type(luaStatePointer, 1));
+    }
+
+    // Get the Ecom interface
+    EOS_HEcom EcomHandle = EOS_Platform_GetEcomInterface(PlatformHandle);
+    if (!EcomHandle)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnLoadProducts: Could not get Ecom interface");
+        auto& dispatcher = GetAndroidLuaEventDispatcher();
+        if (dispatcher)
+        {
+            auto task = std::make_shared<DispatchLoadProductsEventTask>();
+            task->SetLuaEventDispatcher(dispatcher);
+            task->SetIsError(true);
+            task->SetErrorString("Could not get Ecom interface");
+            QueueAndroidEvent(task);
+        }
+        delete context;
+        return 0;
+    }
+
+    // Query all offers from the EOS catalog (async)
+    EOS_Ecom_QueryOffersOptions QueryOptions = {};
+    QueryOptions.ApiVersion = EOS_ECOM_QUERYOFFERS_API_LATEST;
+    QueryOptions.LocalUserId = LocalUserId;
+    QueryOptions.OverrideCatalogNamespace = nullptr;
+
+    CoronaLog("[EOS_DEBUG] OnLoadProducts: calling EOS_Ecom_QueryOffers with %d requested IDs...",
+              (int)context->requestedOfferIds.size());
+    EOS_Ecom_QueryOffers(EcomHandle, &QueryOptions, context, OnQueryOffersComplete);
+
+    return 0;
+}
+
+// ---------------------------------------------------------------------------------
+// EOS Ecom Checkout (Purchase) Implementation
+// ---------------------------------------------------------------------------------
+
+/** Context passed through EOS_Ecom_Checkout callback */
+struct CheckoutContext {
+    std::string productIdentifier;  // The original product ID passed from Lua
+    std::string offerId;            // The offer ID used for checkout
+};
+
+/** EOS Ecom Checkout completion callback - runs on EOS SDK thread */
+static void EOS_CALL OnCheckoutComplete(const EOS_Ecom_CheckoutCallbackInfo* Data)
+{
+    auto* context = static_cast<CheckoutContext*>(Data->ClientData);
+
+    CoronaLog("[EOS_DEBUG] OnCheckoutComplete: result=%s transactionId='%s' productId='%s' offerId='%s'",
+              EOS_EResult_ToString(Data->ResultCode),
+              Data->TransactionId ? Data->TransactionId : "(null)",
+              context->productIdentifier.c_str(),
+              context->offerId.c_str());
+
+    auto task = std::make_shared<DispatchStoreTransactionEventTask>();
+    auto& dispatcher = GetAndroidLuaEventDispatcher();
+    if (dispatcher)
+    {
+        task->SetLuaEventDispatcher(dispatcher);
+    }
+
+    TransactionInfo txn;
+    txn.productIdentifier = context->productIdentifier;
+
+    if (Data->ResultCode == EOS_EResult::EOS_Success)
+    {
+        txn.state = "purchased";
+        txn.receipt = Data->TransactionId ? Data->TransactionId : "";
+        CoronaLog("[EOS_DEBUG] OnCheckoutComplete: purchase SUCCEEDED, transactionId='%s'", txn.receipt.c_str());
+    }
+    else if (Data->ResultCode == EOS_EResult::EOS_Canceled)
+    {
+        txn.state = "cancelled";
+        CoronaLog("[EOS_DEBUG] OnCheckoutComplete: purchase CANCELLED");
+    }
+    else
+    {
+        txn.state = "failed";
+        CoronaLog("[EOS_DEBUG] OnCheckoutComplete: purchase FAILED: %s", EOS_EResult_ToString(Data->ResultCode));
+    }
+
+    task->AddTransaction(txn);
+    QueueAndroidEvent(task);
+
+    delete context;
+}
+
+int OnPurchaseProduct(lua_State* luaStatePointer)
+{
+    // Arg 1: product identifier (string) — could be an offer ID or a catalog item ID
+    const char* productId = lua_tostring(luaStatePointer, 1);
+    if (!productId || productId[0] == '\0')
+    {
+        CoronaLog("[EOS_DEBUG] OnPurchaseProduct: ERROR - no product identifier provided");
+        return 0;
+    }
+
+    CoronaLog("[EOS_DEBUG] OnPurchaseProduct: called with productId='%s'", productId);
+
+    if (PlatformHandle == nullptr || LocalUserId == nullptr)
+    {
+        CoronaLog("[EOS_DEBUG] OnPurchaseProduct: ERROR - not logged in (PlatformHandle=%p, LocalUserId=%p)",
+                  PlatformHandle, LocalUserId);
+        // Dispatch a failed transaction event
+        auto task = std::make_shared<DispatchStoreTransactionEventTask>();
+        auto& dispatcher = GetAndroidLuaEventDispatcher();
+        if (dispatcher) task->SetLuaEventDispatcher(dispatcher);
+        TransactionInfo txn;
+        txn.productIdentifier = productId;
+        txn.state = "failed";
+        task->AddTransaction(txn);
+        QueueAndroidEvent(task);
+        return 0;
+    }
+
+    EOS_HEcom EcomHandle = EOS_Platform_GetEcomInterface(PlatformHandle);
+
+    // Determine the offer ID for checkout.
+    // EOS_Ecom_Checkout requires an offer ID. If the product identifier is a
+    // catalog item ID (matched via OnQueryOffersComplete), look up the corresponding offer ID.
+    // Otherwise, assume productId is already an offer ID.
+    std::string offerId = productId;
+    auto it = sCatalogItemToOfferIdMap.find(productId);
+    if (it != sCatalogItemToOfferIdMap.end())
+    {
+        offerId = it->second;
+        CoronaLog("[EOS_DEBUG] OnPurchaseProduct: mapped catalog item '%s' → offer '%s'", productId, offerId.c_str());
+    }
+    else
+    {
+        CoronaLog("[EOS_DEBUG] OnPurchaseProduct: using productId as offer ID directly: '%s'", productId);
+    }
+
+    // Create checkout entry
+    EOS_Ecom_CheckoutEntry entry = {};
+    entry.ApiVersion = EOS_ECOM_CHECKOUTENTRY_API_LATEST;
+    entry.OfferId = offerId.c_str();
+
+    // Create checkout options
+    EOS_Ecom_CheckoutOptions options = {};
+    options.ApiVersion = EOS_ECOM_CHECKOUT_API_LATEST;
+    options.LocalUserId = LocalUserId;
+    options.OverrideCatalogNamespace = nullptr;
+    options.EntryCount = 1;
+    options.Entries = &entry;
+
+    auto* context = new CheckoutContext();
+    context->productIdentifier = productId;
+    context->offerId = offerId;
+
+    CoronaLog("[EOS_DEBUG] OnPurchaseProduct: calling EOS_Ecom_Checkout with offerId='%s'", offerId.c_str());
+    EOS_Ecom_Checkout(EcomHandle, &options, context, OnCheckoutComplete);
+
+    return 0;
+}
+
 int OnRestorePurchases(lua_State* luaStatePointer) { return 0; }
 int OnFinishTransaction(lua_State* luaStatePointer) { return 0; }
 
@@ -686,5 +1144,134 @@ int OnFinishTransaction(lua_State* luaStatePointer) { return 0; }
 bool OnIsLoggedOn(lua_State* luaStatePointer) { return false; }
 bool OnLoginWithAccountPortal(lua_State* luaStatePointer) { return false; }
 bool OnLogout(lua_State* luaStatePointer) { return false; }
+
+// Event listener functions - on Android, we use the global LuaEventDispatcher
+// from native-lib.cpp instead of RuntimeContext (which doesn't exist on Android).
+// This avoids the lua_upvalueindex(1) crash from JNI.
+// Note: GetAndroidLuaEventDispatcher() is already declared above in the Ecom section.
+
+/** eos.addEventListener(eventName, listener) - Android implementation */
+int OnAddEventListener(lua_State* luaStatePointer)
+{
+	if (!luaStatePointer)
+	{
+		return 0;
+	}
+
+	// Fetch the event name from argument 1.
+	const char* eventName = nullptr;
+	if (lua_type(luaStatePointer, 1) == LUA_TSTRING)
+	{
+		eventName = lua_tostring(luaStatePointer, 1);
+	}
+	if (!eventName || ('\0' == eventName[0]))
+	{
+		CoronaLuaError(luaStatePointer, "1st argument must be set to an event name.");
+		return 0;
+	}
+
+	// Validate the 2nd argument is a Lua listener function/table.
+	if (!CoronaLuaIsListener(luaStatePointer, 2, eventName))
+	{
+		CoronaLuaError(luaStatePointer, "2nd argument must be set to a listener.");
+		return 0;
+	}
+
+	// Add the listener using the global Android event dispatcher.
+	auto& dispatcher = GetAndroidLuaEventDispatcher();
+	if (dispatcher)
+	{
+		CoronaLog("[EOS_DEBUG] OnAddEventListener: Adding listener for event '%s'", eventName);
+		dispatcher->AddEventListener(luaStatePointer, eventName, 2);
+	}
+	else
+	{
+		CoronaLog("WARNING: [EOS_DEBUG] OnAddEventListener: No event dispatcher available yet for event '%s'", eventName);
+	}
+	return 0;
+}
+
+/** eos.removeEventListener(eventName, listener) - Android implementation */
+int OnRemoveEventListener(lua_State* luaStatePointer)
+{
+	if (!luaStatePointer)
+	{
+		return 0;
+	}
+
+	// Fetch the event name from argument 1.
+	const char* eventName = nullptr;
+	if (lua_type(luaStatePointer, 1) == LUA_TSTRING)
+	{
+		eventName = lua_tostring(luaStatePointer, 1);
+	}
+	if (!eventName || ('\0' == eventName[0]))
+	{
+		CoronaLuaError(luaStatePointer, "1st argument must be set to an event name.");
+		return 0;
+	}
+
+	// Validate the 2nd argument is a Lua listener function/table.
+	if (!CoronaLuaIsListener(luaStatePointer, 2, eventName))
+	{
+		CoronaLuaError(luaStatePointer, "2nd argument must be set to a listener.");
+		return 0;
+	}
+
+	// Remove the listener using the global Android event dispatcher.
+	auto& dispatcher = GetAndroidLuaEventDispatcher();
+	if (dispatcher)
+	{
+		CoronaLog("[EOS_DEBUG] OnRemoveEventListener: Removing listener for event '%s'", eventName);
+		dispatcher->RemoveEventListener(luaStatePointer, eventName, 2);
+	}
+	else
+	{
+		CoronaLog("WARNING: [EOS_DEBUG] OnRemoveEventListener: No event dispatcher available for event '%s'", eventName);
+	}
+	return 0;
+}
+
+// OnGetAuthIdToken - Android implementation using global PlatformHandle/LocalUserId
+// instead of RuntimeContext (which doesn't exist on Android).
+// Note: PlatformHandle and LocalUserId are already declared extern above in the Ecom section.
+
+int OnGetAuthIdToken(lua_State* luaStatePointer)
+{
+	if (!luaStatePointer)
+	{
+		return 0;
+	}
+
+	if (!PlatformHandle || !LocalUserId)
+	{
+		CoronaLog("WARNING: [EOS SDK] Cannot get auth ID token - not logged in or platform not initialized");
+		return 0;
+	}
+
+	EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
+	if (!AuthHandle)
+	{
+		CoronaLog("WARNING: [EOS SDK] Cannot get auth interface");
+		return 0;
+	}
+
+	EOS_Auth_CopyIdTokenOptions CopyTokenOptions = { 0 };
+	CopyTokenOptions.ApiVersion = EOS_AUTH_COPYUSERAUTHTOKEN_API_LATEST;
+	CopyTokenOptions.AccountId = LocalUserId;
+
+	EOS_Auth_IdToken* outIdToken;
+	if (EOS_Auth_CopyIdToken(AuthHandle, &CopyTokenOptions, &outIdToken) == EOS_EResult::EOS_Success)
+	{
+		lua_pushstring(luaStatePointer, outIdToken->JsonWebToken);
+		EOS_Auth_IdToken_Release(outIdToken);
+		return 1;
+	}
+	else
+	{
+		CoronaLog("WARNING: [EOS SDK] User Auth Token is invalid");
+		return 0;
+	}
+}
 
 #endif // ANDROID

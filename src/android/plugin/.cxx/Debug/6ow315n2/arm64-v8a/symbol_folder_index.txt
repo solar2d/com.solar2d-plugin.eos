@@ -1,1 +1,1 @@
-/Users/scottharrison/Desktop/com.solar2d-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/arm64-v8a
+/Users/scottharrison/Desktop/epic/com.solar2d-plugin.eos/src/android/plugin/build/intermediates/cxx/Debug/6ow315n2/obj/arm64-v8a

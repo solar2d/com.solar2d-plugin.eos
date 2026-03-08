@@ -311,7 +311,7 @@ public class LuaLoader implements JavaFunction, CoronaRuntimeListener {
                 }
             };
 
-            Handler handler = new Handler();
+            Handler handler = new Handler(android.os.Looper.getMainLooper());
             handler.postDelayed(
                     loginRunnable, // Runnable
                     5000 // Delay in milliseconds

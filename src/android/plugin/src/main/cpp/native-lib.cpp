@@ -1,6 +1,9 @@
 #include <jni.h>
 #include <string>
 #include <set>
+#include <queue>
+#include <memory>
+#include <mutex>
 #include <eos_init.h>
 #include <eos_sdk.h>
 #include <eos_auth.h>
@@ -10,6 +13,15 @@
 #include <eos_userinfo.h>
 #include "Android/eos_android.h"
 #include "EosLuaInterface.h"
+#include "LuaEventDispatcher.h"
+#include "DispatchEventTask.h"
+#include "PluginConfigLuaSettings.h"
+#include "CoronaLua.h"
+
+extern "C"
+{
+#	include "lua.h"
+}
 
 bool IsSDKInitialized = false;
 EOS_HPlatform PlatformHandle = nullptr;
@@ -17,12 +29,37 @@ JNIEnv *LocalENV = nullptr;
 jclass GlobalRefLuaLoaderClass = nullptr;
 jobject GlobalRefLuaLoaderInstance = nullptr;
 
-static EOS_EpicAccountId LocalUserId = nullptr;
+EOS_EpicAccountId LocalUserId = nullptr;
 static EOS_UserInfo *LocalUserInfo = nullptr;
 static EOS_NotificationId NotifyLoginStatusChangedId = EOS_INVALID_NOTIFICATIONID;
 static jobject GlobalRefActivity = nullptr;
 
+// Persistent auth race-condition guards:
+// When loginWithAccountPortal() is called while persistent auth is still in-flight,
+// we defer the account portal login. If persistent auth succeeds, the loginResponse
+// event is dispatched and no Chrome is needed. If persistent auth fails, the deferred
+// account portal login is started automatically.
+static bool sPersistentAuthInProgress = false;
+static bool sPendingAccountPortalLogin = false;
+
+// ---------------------------------------------------------------------------------
+// Android Event Dispatch Infrastructure
+// ---------------------------------------------------------------------------------
+// On Android there is no RuntimeContext. Instead we use a global LuaEventDispatcher
+// and an event task queue, processed during enterFrame, to bridge EOS callbacks to Lua.
+
+std::shared_ptr<LuaEventDispatcher> sAndroidLuaEventDispatcher;
+static std::queue<std::shared_ptr<BaseDispatchEventTask>> sAndroidEventQueue;
+static std::mutex sEventQueueMutex;
+
+/** Accessor for EosLuaInterface.cpp Android stubs */
+std::shared_ptr<LuaEventDispatcher>& GetAndroidLuaEventDispatcher() {
+    return sAndroidLuaEventDispatcher;
+}
+
 void DeletePersistentAuth();
+void LoginPersistentAuth();
+void AddNotifyLoginStatusChanged();
 
 /** Call Java showtext method to display log in Android view */
 void OS_LOG(const char *Text) {
@@ -41,11 +78,13 @@ lua_State* GetLuaStatePointer(JNIEnv *env, jobject luaStateObj) {
 
 /** Call Java UIButtonHandler method to hide/show correct button */
 void LoginStateChanged(bool loggedIn) {
+    CoronaLog("[EOS_DEBUG] native-lib: LoginStateChanged(%s)", loggedIn ? "true" : "false");
     jmethodID MethodID = LocalENV->GetMethodID(GlobalRefLuaLoaderClass, "LoginStateChanged", "(Z)V");
     LocalENV->CallVoidMethod(GlobalRefLuaLoaderInstance, MethodID, loggedIn);
 }
 
 void LoginInProgress() {
+    CoronaLog("[EOS_DEBUG] native-lib: LoginInProgress()");
     jmethodID MethodID = LocalENV->GetMethodID(GlobalRefLuaLoaderClass, "LoginInProgress", "()V");
     LocalENV->CallVoidMethod(GlobalRefLuaLoaderInstance, MethodID);
 }
@@ -80,8 +119,35 @@ Java_plugin_eos_LuaLoader_GetUsername(JNIEnv *env, jobject thiz) {
     return LocalENV->NewStringUTF(GetLoggedInDisplayName().c_str());
 }
 
+// ---------------------------------------------------------------------------------
+// Helper: Queue a loginResponse event for dispatch to Lua during next enterFrame
+// ---------------------------------------------------------------------------------
+static void QueueLoginResponseEvent(const EOS_Auth_LoginCallbackInfo *Data) {
+    if (!sAndroidLuaEventDispatcher) {
+        CoronaLog("[EOS_DEBUG] native-lib: QueueLoginResponseEvent - no event dispatcher, skipping");
+        return;
+    }
+    CoronaLog("[EOS_DEBUG] native-lib: QueueLoginResponseEvent result=%s", EOS_EResult_ToString(Data->ResultCode));
+    auto taskPointer = new DispatchLoginResponseEventTask();
+    taskPointer->SetLuaEventDispatcher(sAndroidLuaEventDispatcher);
+    taskPointer->AcquireEventDataFrom(Data);
+    {
+        std::lock_guard<std::mutex> lock(sEventQueueMutex);
+        sAndroidEventQueue.push(std::shared_ptr<BaseDispatchEventTask>(taskPointer));
+    }
+}
+
+/** Helper: Queue any event task for dispatch to Lua during next enterFrame.
+ *  Called from EosLuaInterface.cpp for loadProducts, purchase, etc. */
+void QueueAndroidEvent(std::shared_ptr<BaseDispatchEventTask> task) {
+    std::lock_guard<std::mutex> lock(sEventQueueMutex);
+    sAndroidEventQueue.push(task);
+}
+
 /** Callback to handle login status changes */
 void EOS_CALL AuthNotifyLoginStatusChangedCb(const EOS_Auth_LoginStatusChangedCallbackInfo *Data) {
+    CoronaLog("[EOS_DEBUG] native-lib: AuthNotifyLoginStatusChangedCb prev=%d current=%d",
+              (int)Data->PrevStatus, (int)Data->CurrentStatus);
     if (Data->CurrentStatus == EOS_ELoginStatus::EOS_LS_LoggedIn) {
         LoginStateChanged(true);
     } else if (Data->CurrentStatus == EOS_ELoginStatus::EOS_LS_NotLoggedIn) {
@@ -92,6 +158,10 @@ void EOS_CALL AuthNotifyLoginStatusChangedCb(const EOS_Auth_LoginStatusChangedCa
 
 /** Callback to handle result of attempting a login using the web account portal */
 void EOS_CALL AuthLoginCb(const EOS_Auth_LoginCallbackInfo *Data) {
+    CoronaLog("[EOS_DEBUG] native-lib: AuthLoginCb result=%s isComplete=%s",
+              EOS_EResult_ToString(Data->ResultCode),
+              EOS_EResult_IsOperationComplete(Data->ResultCode) ? "true" : "false");
+
     if (!EOS_EResult_IsOperationComplete(Data->ResultCode)) {
         return;
     }
@@ -103,12 +173,19 @@ void EOS_CALL AuthLoginCb(const EOS_Auth_LoginCallbackInfo *Data) {
         LocalUserId = Data->LocalUserId;
         std::string DisplayName = std::string("DisplayName= ") + GetLoggedInDisplayName();
         OS_LOG(DisplayName.c_str());
+        CoronaLog("[EOS_DEBUG] native-lib: AuthLoginCb SUCCESS, user=%s", DisplayName.c_str());
     }
     LoginStateChanged(bSuccessful);
+
+    // Queue loginResponse event for dispatch to Lua
+    QueueLoginResponseEvent(Data);
 }
 
 /** Callback to handle result of attempting a login with stored secure credentials */
 void EOS_CALL PersistentAuthLoginCb(const EOS_Auth_LoginCallbackInfo *Data) {
+    CoronaLog("[EOS_DEBUG] native-lib: PersistentAuthLoginCb result=%s isComplete=%s",
+              EOS_EResult_ToString(Data->ResultCode),
+              EOS_EResult_IsOperationComplete(Data->ResultCode) ? "true" : "false");
 
     if (!EOS_EResult_IsOperationComplete(Data->ResultCode)) {
         return;
@@ -122,6 +199,7 @@ void EOS_CALL PersistentAuthLoginCb(const EOS_Auth_LoginCallbackInfo *Data) {
         LocalUserId = Data->LocalUserId;
         std::string DisplayName = std::string("DisplayName= ") + GetLoggedInDisplayName();
         OS_LOG(DisplayName.c_str());
+        CoronaLog("[EOS_DEBUG] native-lib: PersistentAuthLoginCb SUCCESS, user=%s", DisplayName.c_str());
     } else {
         // Check the specific error if we fail to complete a persistent login attempt, as we may need to flush any stored secure credentials
         switch (Data->ResultCode) {
@@ -132,9 +210,11 @@ void EOS_CALL PersistentAuthLoginCb(const EOS_Auth_LoginCallbackInfo *Data) {
             case EOS_EResult::EOS_ServiceFailure:
             case EOS_EResult::EOS_NotFound:
                 OS_LOG("LoginPersistentAuth: Login Failed");
+                CoronaLog("[EOS_DEBUG] native-lib: PersistentAuth failed (non-fatal): %s", EOS_EResult_ToString(Data->ResultCode));
                 break;
             default:
                 OS_LOG("LoginPersistentAuth: Delete persistent auth");
+                CoronaLog("[EOS_DEBUG] native-lib: PersistentAuth failed, deleting credentials");
                 DeletePersistentAuth();
                 break;
         }
@@ -142,6 +222,48 @@ void EOS_CALL PersistentAuthLoginCb(const EOS_Auth_LoginCallbackInfo *Data) {
 
     /** Update native UI */
     LoginStateChanged(bSuccessful);
+
+    // Clear the persistent auth in-progress flag
+    sPersistentAuthInProgress = false;
+
+    // Only dispatch loginResponse to Lua on SUCCESS.
+    // On failure, persistent auth is an internal mechanism - the user hasn't
+    // explicitly requested a login, so we should NOT dispatch an error to Lua.
+    // The user will later call loginWithAccountPortal() which has its own callback.
+    if (bSuccessful) {
+        CoronaLog("[EOS_DEBUG] native-lib: PersistentAuth succeeded, dispatching loginResponse to Lua");
+        QueueLoginResponseEvent(Data);
+        // If loginWithAccountPortal was called while persistent auth was in-flight,
+        // the loginResponse we just queued will satisfy it — no need for Chrome.
+        if (sPendingAccountPortalLogin) {
+            CoronaLog("[EOS_DEBUG] native-lib: Clearing deferred accountPortal login (persistent auth succeeded)");
+            sPendingAccountPortalLogin = false;
+        }
+    } else {
+        CoronaLog("[EOS_DEBUG] native-lib: PersistentAuth failed, NOT dispatching error to Lua (internal mechanism)");
+        // If loginWithAccountPortal was called while persistent auth was in-flight,
+        // persistent auth failed, so now actually start the account portal (Chrome) flow.
+        if (sPendingAccountPortalLogin) {
+            CoronaLog("[EOS_DEBUG] native-lib: PersistentAuth failed, starting deferred AccountPortal login now");
+            sPendingAccountPortalLogin = false;
+
+            EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
+            EOS_Auth_Credentials Credentials = {};
+            Credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
+            Credentials.Type = EOS_ELoginCredentialType::EOS_LCT_AccountPortal;
+            Credentials.Id = nullptr;
+            Credentials.Token = nullptr;
+
+            EOS_Auth_LoginOptions LoginOptions = {};
+            LoginOptions.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
+            LoginOptions.Credentials = &Credentials;
+            LoginOptions.ScopeFlags = EOS_EAuthScopeFlags::EOS_AS_BasicProfile;
+
+            LoginInProgress();
+            EOS_Auth_Login(AuthHandle, &LoginOptions, nullptr, AuthLoginCb);
+            CoronaLog("[EOS_DEBUG] native-lib: Deferred AccountPortal EOS_Auth_Login initiated");
+        }
+    }
 }
 
 /** Callback to handle result of attempting to delete any secure credentials on the device */
@@ -173,10 +295,125 @@ void EOS_CALL AuthLogoutCb(const EOS_Auth_LogoutCallbackInfo *Data) {
 
 /** Delete secure stored credentials on this device */
 void DeletePersistentAuth() {
+    if (PlatformHandle == nullptr) {
+        CoronaLog("[EOS_DEBUG] native-lib: DeletePersistentAuth skipped - no platform handle");
+        return;
+    }
     EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
     EOS_Auth_DeletePersistentAuthOptions DeletePersistentAuthOptions = {};
     DeletePersistentAuthOptions.ApiVersion = EOS_AUTH_DELETEPERSISTENTAUTH_API_LATEST;
     EOS_Auth_DeletePersistentAuth(AuthHandle, &DeletePersistentAuthOptions, nullptr, AuthDeletePersistentAuthCb);
+}
+
+// ---------------------------------------------------------------------------------
+// enterFrame callback: Ticks EOS SDK and dispatches queued events to Lua
+// ---------------------------------------------------------------------------------
+static int AndroidEnterFrame(lua_State* L) {
+    // Tick EOS platform
+    if (PlatformHandle != nullptr) {
+        EOS_Platform_Tick(PlatformHandle);
+    }
+
+    // Process queued events - move to local queue under lock, then execute without lock
+    std::queue<std::shared_ptr<BaseDispatchEventTask>> localQueue;
+    {
+        std::lock_guard<std::mutex> lock(sEventQueueMutex);
+        std::swap(localQueue, sAndroidEventQueue);
+    }
+    while (!localQueue.empty()) {
+        auto task = localQueue.front();
+        localQueue.pop();
+        if (task) {
+            CoronaLog("[EOS_DEBUG] native-lib: enterFrame dispatching event '%s' to Lua", task->GetLuaEventName());
+            task->Execute();
+        }
+    }
+
+    return 0;
+}
+
+// ---------------------------------------------------------------------------------
+// Helper: Create platform from config.lua settings (mirrors desktop luaopen_plugin_eos)
+// ---------------------------------------------------------------------------------
+static bool CreatePlatformFromConfig(lua_State* L) {
+    if (PlatformHandle != nullptr) {
+        CoronaLog("[EOS_DEBUG] native-lib: Platform already created, skipping");
+        return true;
+    }
+
+    // Read EOS settings from config.lua
+    PluginConfigLuaSettings configLuaSettings;
+    bool hasConfig = configLuaSettings.LoadFrom(L);
+    if (!hasConfig) {
+        CoronaLog("[EOS_DEBUG] native-lib: No application.eos table found in config.lua!");
+        return false;
+    }
+
+    CoronaLog("[EOS_DEBUG] native-lib: Creating platform with config.lua settings");
+    CoronaLog("[EOS_DEBUG]   productId=%s", configLuaSettings.GetStringProductId());
+    CoronaLog("[EOS_DEBUG]   sandboxId=%s", configLuaSettings.GetStringSandboxId());
+    CoronaLog("[EOS_DEBUG]   deploymentId=%s", configLuaSettings.GetStringDeploymentId());
+    CoronaLog("[EOS_DEBUG]   clientId=%s", configLuaSettings.GetStringClientId());
+
+    EOS_Platform_Options PlatformOptions{0};
+    PlatformOptions.ApiVersion = EOS_PLATFORM_OPTIONS_API_LATEST;
+    PlatformOptions.ProductId = configLuaSettings.GetStringProductId();
+    PlatformOptions.SandboxId = configLuaSettings.GetStringSandboxId();
+    PlatformOptions.DeploymentId = configLuaSettings.GetStringDeploymentId();
+    PlatformOptions.ClientCredentials.ClientId = configLuaSettings.GetStringClientId();
+    PlatformOptions.ClientCredentials.ClientSecret = configLuaSettings.GetStringClientSecret();
+    PlatformOptions.bIsServer = EOS_FALSE;
+    PlatformOptions.Flags = 0;
+
+    PlatformHandle = EOS_Platform_Create(&PlatformOptions);
+    if (PlatformHandle == nullptr) {
+        CoronaLog("ERROR: [EOS SDK] Platform creation failed!");
+        return false;
+    }
+
+    CoronaLog("[EOS_DEBUG] native-lib: Platform creation successful!");
+
+    // Register for login status changes and attempt persistent auth login
+    AddNotifyLoginStatusChanged();
+    CoronaLog("[EOS_DEBUG] native-lib: AddNotifyLoginStatusChanged done");
+    LoginPersistentAuth();
+    CoronaLog("[EOS_DEBUG] native-lib: LoginPersistentAuth initiated");
+
+    return true;
+}
+
+// ---------------------------------------------------------------------------------
+// Helper: Register enterFrame listener for EOS ticking
+// ---------------------------------------------------------------------------------
+static bool RegisterEnterFrameListener(lua_State* L) {
+    CoronaLog("[EOS_DEBUG] native-lib: Registering enterFrame listener for EOS ticking");
+
+    lua_getglobal(L, "Runtime");
+    if (!lua_istable(L, -1)) {
+        CoronaLog("ERROR: [EOS SDK] Could not find Runtime global for enterFrame listener");
+        lua_pop(L, 1);
+        return false;
+    }
+
+    lua_getfield(L, -1, "addEventListener");
+    if (!lua_isfunction(L, -1)) {
+        CoronaLog("ERROR: [EOS SDK] Runtime.addEventListener not found");
+        lua_pop(L, 2);
+        return false;
+    }
+
+    lua_pushvalue(L, -2);                // push Runtime as self
+    lua_pushstring(L, "enterFrame");     // push event name
+    lua_pushcfunction(L, AndroidEnterFrame); // push callback
+    int callResult = CoronaLuaDoCall(L, 3, 0);
+    if (callResult != 0) {
+        CoronaLog("ERROR: [EOS SDK] Failed to register enterFrame listener, error=%d", callResult);
+    } else {
+        CoronaLog("[EOS_DEBUG] native-lib: enterFrame listener registered successfully");
+    }
+
+    lua_pop(L, 1); // pop Runtime
+    return callResult == 0;
 }
 
 /** Initialize the EOS SDK for use before we call any other functions, normally during application launching
@@ -187,9 +424,14 @@ Java_plugin_eos_LuaLoader_nativeInitializeSDK(
         jobject /* this */,
         jobject luaStateObj,
         jstring Path) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeInitializeSDK called, IsSDKInitialized=%s", IsSDKInitialized ? "true" : "false");
+
+    lua_State* L = GetLuaStatePointer(env, luaStateObj);
+
     if (IsSDKInitialized) {
         // SDK previously initialized. Skip.
         OS_LOG("EOS_Initialize already initialized");
+        CoronaLog("[EOS_DEBUG] native-lib: SDK already initialized, skipping");
         return true;
     }
 
@@ -206,9 +448,27 @@ Java_plugin_eos_LuaLoader_nativeInitializeSDK(
     JNIOptions.OptionalExternalDirectory = androidPath;
     SDKOptions.SystemInitializeOptions = &JNIOptions;
 
-    lua_State* L = GetLuaStatePointer(env, luaStateObj);
     IsSDKInitialized = InitializeSDK(L, SDKOptions);
-    return IsSDKInitialized;
+    if (!IsSDKInitialized) {
+        CoronaLog("ERROR: [EOS SDK] InitializeSDK failed!");
+        return false;
+    }
+    CoronaLog("[EOS_DEBUG] native-lib: SDK initialized successfully");
+
+    // Create the Lua event dispatcher (for addEventListener/removeEventListener/dispatchEvent)
+    if (!sAndroidLuaEventDispatcher) {
+        CoronaLog("[EOS_DEBUG] native-lib: Creating LuaEventDispatcher");
+        sAndroidLuaEventDispatcher = std::make_shared<LuaEventDispatcher>(L);
+        CoronaLog("[EOS_DEBUG] native-lib: LuaEventDispatcher created");
+    }
+
+    // Create the EOS platform using config.lua settings
+    CreatePlatformFromConfig(L);
+
+    // Register enterFrame listener for EOS ticking + event dispatch
+    RegisterEnterFrameListener(L);
+
+    return true;
 }
 
 extern "C" JNIEXPORT jint JNICALL
@@ -216,6 +476,7 @@ Java_plugin_eos_LuaLoader_nativeLoadProducts(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeLoadProducts called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
     return OnLoadProducts(L);
 }
@@ -224,6 +485,7 @@ Java_plugin_eos_LuaLoader_nativePurchase(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativePurchase called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
     return OnPurchaseProduct(L);
 }
@@ -233,6 +495,7 @@ Java_plugin_eos_LuaLoader_nativeRestorePurchases(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeRestorePurchases called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
     return OnRestorePurchases(L);
 }
@@ -243,6 +506,7 @@ Java_plugin_eos_LuaLoader_nativeFinishTransaction(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeFinishTransaction called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
     return OnFinishTransaction(L);
 }
@@ -252,8 +516,12 @@ Java_plugin_eos_LuaLoader_nativeIsLoggedOn(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    bool loggedOn = (PlatformHandle != nullptr && LocalUserId != nullptr);
+    CoronaLog("[EOS_DEBUG] native-lib: nativeIsLoggedOn = %s (PlatformHandle=%p, LocalUserId=%p)",
+              loggedOn ? "true" : "false", PlatformHandle, LocalUserId);
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
-    return OnIsLoggedOn(L);
+    lua_pushboolean(L, loggedOn ? 1 : 0);
+    return loggedOn;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -261,8 +529,55 @@ Java_plugin_eos_LuaLoader_nativeLoginWithAccountPortal(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
-    lua_State* L = GetLuaStatePointer(env, luaStateObj);
-    return OnLoginWithAccountPortal(L);
+    CoronaLog("[EOS_DEBUG] native-lib: nativeLoginWithAccountPortal called");
+
+    if (PlatformHandle == nullptr) {
+        CoronaLog("ERROR: [EOS SDK] nativeLoginWithAccountPortal - PlatformHandle is null!");
+        return false;
+    }
+
+    // If already logged in, immediately queue a success loginResponse instead of
+    // opening the browser again. This prevents the double-login loop where
+    // IAPStore:loadProducts() triggers another login after IAPShopScreen already logged in.
+    if (LocalUserId != nullptr) {
+        CoronaLog("[EOS_DEBUG] native-lib: Already logged in, skipping AccountPortal login and dispatching success");
+        EOS_Auth_LoginCallbackInfo syntheticData = {};
+        syntheticData.ResultCode = EOS_EResult::EOS_Success;
+        syntheticData.SelectedAccountId = LocalUserId;
+        syntheticData.LocalUserId = LocalUserId;
+        QueueLoginResponseEvent(&syntheticData);
+        CoronaLog("[EOS_DEBUG] native-lib: Queued synthetic success loginResponse");
+        return true;
+    }
+
+    // If persistent auth is still in progress, defer. When persistent auth completes:
+    // - If success: loginResponse will be dispatched automatically (no Chrome needed)
+    // - If fail: the account portal login will be started from PersistentAuthLoginCb
+    if (sPersistentAuthInProgress) {
+        CoronaLog("[EOS_DEBUG] native-lib: PersistentAuth still in progress, deferring AccountPortal login");
+        sPendingAccountPortalLogin = true;
+        return true;
+    }
+
+    // Actually perform the login (persistent auth already failed or was never started)
+    EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
+
+    EOS_Auth_Credentials Credentials = {};
+    Credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
+    Credentials.Type = EOS_ELoginCredentialType::EOS_LCT_AccountPortal;
+    Credentials.Id = nullptr;
+    Credentials.Token = nullptr;
+
+    EOS_Auth_LoginOptions LoginOptions = {};
+    LoginOptions.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
+    LoginOptions.Credentials = &Credentials;
+    LoginOptions.ScopeFlags = EOS_EAuthScopeFlags::EOS_AS_BasicProfile;
+
+    CoronaLog("[EOS_DEBUG] native-lib: Calling EOS_Auth_Login with AccountPortal...");
+    LoginInProgress();
+    EOS_Auth_Login(AuthHandle, &LoginOptions, nullptr, AuthLoginCb);
+    CoronaLog("[EOS_DEBUG] native-lib: EOS_Auth_Login initiated");
+    return true;
 }
 
 extern "C" JNIEXPORT jboolean JNICALL
@@ -270,6 +585,7 @@ Java_plugin_eos_LuaLoader_nativeAddEventListener(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeAddEventListener called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
     return OnAddEventListener(L);
 }
@@ -279,6 +595,7 @@ Java_plugin_eos_LuaLoader_nativeRemoveEventListener(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeRemoveEventListener called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
     return OnRemoveEventListener(L);
 }
@@ -288,8 +605,18 @@ Java_plugin_eos_LuaLoader_nativeLogout(
         JNIEnv *env,
         jobject /* this */,
         jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeLogout called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
-    return OnLogout(L);
+    if (PlatformHandle == nullptr) {
+        CoronaLog("[EOS_DEBUG] native-lib: nativeLogout - no platform handle");
+        return false;
+    }
+    EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
+    EOS_Auth_LogoutOptions LogoutOptions = {};
+    LogoutOptions.ApiVersion = EOS_AUTH_LOGOUT_API_LATEST;
+    LogoutOptions.LocalUserId = LocalUserId;
+    EOS_Auth_Logout(AuthHandle, &LogoutOptions, nullptr, AuthLogoutCb);
+    return true;
 }
 
 void AuthLogin(const EOS_Auth_LoginOptions &options, const EOS_Auth_OnLoginCallback delegate) {
@@ -304,6 +631,9 @@ void AuthLogin(const EOS_Auth_LoginOptions &options, const EOS_Auth_OnLoginCallb
  *  This should be called after createPlatform and before allowing the user any manual login options */
 void LoginPersistentAuth() {
     OS_LOG("Performing Persistent login");
+    CoronaLog("[EOS_DEBUG] native-lib: LoginPersistentAuth called");
+
+    sPersistentAuthInProgress = true;
 
     EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
 
@@ -342,6 +672,9 @@ void ShutdownSDK() {
         LocalUserInfo = nullptr;
     }
 
+    // Release the event dispatcher
+    sAndroidLuaEventDispatcher.reset();
+
     EOS_Platform_Release(PlatformHandle);
     PlatformHandle = nullptr;
 
@@ -353,6 +686,10 @@ void RemoveNotifyLoginStatusChanged() {
     OS_LOG("RemoveNotifyLoginStatusChanged: Unregister");
 
     if (NotifyLoginStatusChangedId == EOS_INVALID_NOTIFICATIONID) {
+        return;
+    }
+
+    if (PlatformHandle == nullptr) {
         return;
     }
 
@@ -369,6 +706,7 @@ Java_plugin_eos_LuaLoader_CreatePlatform(
         jobject /* this */, jstring ProductID, jstring SandboxID, jstring DeploymentID, jstring ClientID,
         jstring ClientSecret,
         jboolean IsServer, jint Flags) {
+    CoronaLog("[EOS_DEBUG] native-lib: CreatePlatform (Java) called");
     if (PlatformHandle != nullptr) {
         // Platform previously created. Skip.
         OS_LOG("EOS Platform already created");
@@ -404,6 +742,7 @@ extern "C" JNIEXPORT void JNICALL
 Java_plugin_eos_LuaLoader_Logout(
         JNIEnv *env,
         jobject /* this */) {
+    if (PlatformHandle == nullptr) return;
     EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
     EOS_Auth_LogoutOptions LogoutOptions = {};
     LogoutOptions.ApiVersion = EOS_AUTH_LOGOUT_API_LATEST;
@@ -414,6 +753,7 @@ Java_plugin_eos_LuaLoader_Logout(
 extern "C"
 JNIEXPORT jint JNICALL
 Java_plugin_eos_LuaLoader_nativeGetAuthIdToken(JNIEnv *env, jobject thiz, jobject luaStateObj) {
+    CoronaLog("[EOS_DEBUG] native-lib: nativeGetAuthIdToken called");
     lua_State* L = GetLuaStatePointer(env, luaStateObj);
     return OnGetAuthIdToken(L);
 }
@@ -424,6 +764,11 @@ extern "C" JNIEXPORT void JNICALL
 Java_plugin_eos_LuaLoader_LoginWithAccountPortal(
         JNIEnv *env,
         jobject /* this */) {
+    CoronaLog("[EOS_DEBUG] native-lib: LoginWithAccountPortal (Java) called");
+    if (PlatformHandle == nullptr) {
+        CoronaLog("ERROR: [EOS SDK] LoginWithAccountPortal - PlatformHandle is null!");
+        return;
+    }
     EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(PlatformHandle);
 
     EOS_Auth_Credentials Credentials = {};
@@ -435,8 +780,7 @@ Java_plugin_eos_LuaLoader_LoginWithAccountPortal(
     EOS_Auth_LoginOptions LoginOptions = {};
     LoginOptions.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
     LoginOptions.Credentials = &Credentials;
-    LoginOptions.ScopeFlags = EOS_EAuthScopeFlags::EOS_AS_BasicProfile | EOS_EAuthScopeFlags::EOS_AS_Presence |
-                              EOS_EAuthScopeFlags::EOS_AS_FriendsList;
+    LoginOptions.ScopeFlags = EOS_EAuthScopeFlags::EOS_AS_BasicProfile;
     AuthLogin(LoginOptions, AuthLoginCb);
 }
 
@@ -446,25 +790,33 @@ Java_plugin_eos_LuaLoader_Tick(
         JNIEnv *env,
         jobject
         /* this */) {
-    EOS_Platform_Tick(PlatformHandle);
+    if (PlatformHandle != nullptr) {
+        EOS_Platform_Tick(PlatformHandle);
+    }
 }
 
 /** Suspend signals to the SDK that the application status will change to background */
 extern "C"
 JNIEXPORT void JNICALL
 Java_plugin_eos_LuaLoader_Suspend(JNIEnv *env, jobject thiz) {
-    EOS_Platform_SetApplicationStatus(PlatformHandle, EOS_EApplicationStatus::EOS_AS_BackgroundSuspended);
+    if (PlatformHandle != nullptr) {
+        EOS_Platform_SetApplicationStatus(PlatformHandle, EOS_EApplicationStatus::EOS_AS_BackgroundSuspended);
+    }
 }
 
 /** Resume signals to the SDK that the application status will change to foreground */
 extern "C"
 JNIEXPORT void JNICALL
 Java_plugin_eos_LuaLoader_Resume(JNIEnv *env, jobject thiz) {
-    EOS_Platform_SetApplicationStatus(PlatformHandle, EOS_EApplicationStatus::EOS_AS_Foreground);
+    if (PlatformHandle != nullptr) {
+        EOS_Platform_SetApplicationStatus(PlatformHandle, EOS_EApplicationStatus::EOS_AS_Foreground);
+    }
 }
 
 void UpdateNetwork(EOS_ENetworkStatus status) {
-    EOS_Platform_SetNetworkStatus(PlatformHandle, status);
+    if (PlatformHandle != nullptr) {
+        EOS_Platform_SetNetworkStatus(PlatformHandle, status);
+    }
 }
 
 extern "C"
