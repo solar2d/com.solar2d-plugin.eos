@@ -44,6 +44,24 @@ extern "C"
 #include "Windows/eos_Windows.h"
 #endif
 
+#if defined(__APPLE__)
+#include <TargetConditionals.h>
+#if TARGET_OS_IPHONE
+// iOS: Provide the EOS_IOS_Auth_CredentialsOptions struct for AccountPortal login.
+// We define a layout-compatible struct here to avoid importing UIKit in this .cpp file.
+// The actual eos_ios.h requires <UIKit/UIKit.h> which needs Objective-C(++) compilation.
+#include "WebAuthContextProvider.h"
+#pragma pack(push, 8)
+struct EOS_IOS_Auth_CredentialsOptions_Compat {
+	int32_t ApiVersion;
+	void* PresentationContextProviding;
+	void* CreateBackgroundSnapshotView;
+	void* CreateBackgroundSnapshotViewContext;
+};
+#pragma pack(pop)
+#endif // TARGET_OS_IPHONE
+#endif // __APPLE__
+
 //---------------------------------------------------------------------------------
 // Constants
 //---------------------------------------------------------------------------------
@@ -363,33 +381,23 @@ int OnAccessingField(lua_State* luaStatePointer)
 
 	// Attempt to fetch the requested field value.
 	int resultCount = 0;
-	if (!strcmp(fieldName, "isLoggedOn"))
+	if (!strcmp(fieldName, "canLoadProducts"))
 	{
-		// Fetch the runtime context associated with the calling Lua state.
-		auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
-		if (!contextPointer)
-		{
-			return 0;
-		}
-
-		if (!contextPointer->fAccountId)
-		{
-			lua_pushboolean(luaStatePointer, 0);
-			return 1;
-		}
-
-		if (!contextPointer->fPlatformHandle) {
-			lua_pushboolean(luaStatePointer, 0);
-			return 1;
-		}
-
+		// Epic store always supports loading products
+		lua_pushboolean(luaStatePointer, 1);
+		resultCount = 1;
+	}
+	else if (!strcmp(fieldName, "isActive"))
+	{
+		// Plugin is always active once loaded
 		lua_pushboolean(luaStatePointer, 1);
 		resultCount = 1;
 	}
 	else
 	{
-		// Unknown field.
-		CoronaLuaError(luaStatePointer, "Accessing unknown field: '%s'", fieldName);
+		// Unknown field - return nil silently (don't error, game may probe for optional fields)
+		lua_pushnil(luaStatePointer);
+		resultCount = 1;
 	}
 
 	// Return the number of value pushed to Lua as return values.
@@ -419,6 +427,627 @@ int OnFinalizing(lua_State* luaStatePointer)
 	}
 
 	return 0;
+}
+
+
+//---------------------------------------------------------------------------------
+// iOS/Desktop IAP Functions (using RuntimeContext)
+//---------------------------------------------------------------------------------
+
+// Map from product identifier (catalog item ID) → offer ID
+// Populated during OnQueryOffersComplete, used by OnPurchaseProduct to look up
+// the correct offer ID for EOS_Ecom_Checkout.
+static std::map<std::string, std::string> sCatalogItemToOfferIdMap;
+
+/** Helper: Format price from EOS Ecom offer data into a localized price string */
+static std::string FormatOfferPrice(const EOS_Ecom_CatalogOffer* offer)
+{
+    if (!offer || offer->PriceResult != EOS_EResult::EOS_Success)
+    {
+        return "N/A";
+    }
+
+    uint64_t price = offer->CurrentPrice64;
+    uint32_t decimalPoint = offer->DecimalPoint;
+    std::string currencyCode = offer->CurrencyCode ? offer->CurrencyCode : "";
+
+    std::string priceStr;
+    if (decimalPoint > 0)
+    {
+        uint64_t divisor = 1;
+        for (uint32_t d = 0; d < decimalPoint; d++) divisor *= 10;
+        uint64_t whole = price / divisor;
+        uint64_t frac = price % divisor;
+
+        std::ostringstream oss;
+        oss << whole << ".";
+        std::string fracStr = std::to_string(frac);
+        while (fracStr.length() < decimalPoint) fracStr = "0" + fracStr;
+        oss << fracStr;
+        priceStr = oss.str();
+    }
+    else
+    {
+        priceStr = std::to_string(price);
+    }
+
+    if (currencyCode == "USD") return "$" + priceStr;
+    else if (currencyCode == "EUR") return "\xE2\x82\xAC" + priceStr;
+    else if (currencyCode == "GBP") return "\xC2\xA3" + priceStr;
+    else if (currencyCode == "JPY") return "\xC2\xA5" + priceStr;
+    else if (currencyCode == "CAD") return "CA$" + priceStr;
+    else if (currencyCode == "AUD") return "A$" + priceStr;
+    else if (currencyCode == "BRL") return "R$" + priceStr;
+    else if (currencyCode == "MXN") return "MX$" + priceStr;
+    else if (!currencyCode.empty()) return priceStr + " " + currencyCode;
+    else return priceStr;
+}
+
+/** Context passed through EOS_Ecom_QueryOffers callback to carry requested offer IDs */
+struct QueryOffersContext {
+    std::vector<std::string> requestedOfferIds;
+};
+
+/** EOS Ecom QueryOffers completion callback */
+static void EOS_CALL OnQueryOffersComplete(const EOS_Ecom_QueryOffersCallbackInfo* Data)
+{
+    auto context = static_cast<QueryOffersContext*>(Data->ClientData);
+    auto* rtContext = RuntimeContext::GetFirstInstance();
+    if (!rtContext)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnQueryOffersComplete: No RuntimeContext available");
+        delete context;
+        return;
+    }
+
+    auto dispatcher = rtContext->GetLuaEventDispatcher();
+    auto task = std::make_shared<DispatchLoadProductsEventTask>();
+    task->SetLuaEventDispatcher(dispatcher);
+
+    if (Data->ResultCode != EOS_EResult::EOS_Success)
+    {
+        CoronaLog("[EOS_DEBUG] OnQueryOffersComplete: FAILED result=%s", EOS_EResult_ToString(Data->ResultCode));
+        task->SetIsError(true);
+        task->SetErrorString(EOS_EResult_ToString(Data->ResultCode));
+    }
+    else
+    {
+        EOS_HEcom EcomHandle = EOS_Platform_GetEcomInterface(rtContext->fPlatformHandle);
+
+        EOS_Ecom_GetOfferCountOptions CountOptions = {};
+        CountOptions.ApiVersion = EOS_ECOM_GETOFFERCOUNT_API_LATEST;
+        CountOptions.LocalUserId = rtContext->fAccountId;
+        uint32_t offerCount = EOS_Ecom_GetOfferCount(EcomHandle, &CountOptions);
+
+        CoronaLog("[EOS_DEBUG] OnQueryOffersComplete: SUCCESS, %u offers in catalog, %d requested",
+                  offerCount, (int)context->requestedOfferIds.size());
+
+        std::set<std::string> requestedSet(context->requestedOfferIds.begin(),
+                                            context->requestedOfferIds.end());
+        std::set<std::string> matchedSet;
+
+        int matchedCount = 0;
+        for (uint32_t i = 0; i < offerCount; i++)
+        {
+            EOS_Ecom_CopyOfferByIndexOptions CopyOptions = {};
+            CopyOptions.ApiVersion = EOS_ECOM_COPYOFFERBYINDEX_API_LATEST;
+            CopyOptions.LocalUserId = rtContext->fAccountId;
+            CopyOptions.OfferIndex = i;
+
+            EOS_Ecom_CatalogOffer* offer = nullptr;
+            EOS_EResult copyResult = EOS_Ecom_CopyOfferByIndex(EcomHandle, &CopyOptions, &offer);
+            if (copyResult != EOS_EResult::EOS_Success || !offer)
+            {
+                CoronaLog("[EOS_DEBUG]   offer[%u]: CopyOfferByIndex failed: %s", i, EOS_EResult_ToString(copyResult));
+                continue;
+            }
+
+            std::string offerId = offer->Id ? offer->Id : "";
+            std::string offerTitle = offer->TitleText ? offer->TitleText : "(null)";
+
+            CoronaLog("[EOS_DEBUG]   catalog offer[%u]: id='%s' title='%s' available=%d price=%s",
+                      i, offerId.c_str(), offerTitle.c_str(),
+                      (int)offer->bAvailableForPurchase,
+                      FormatOfferPrice(offer).c_str());
+
+            // Enumerate catalog items within this offer
+            EOS_Ecom_GetOfferItemCountOptions ItemCountOptions = {};
+            ItemCountOptions.ApiVersion = EOS_ECOM_GETOFFERITEMCOUNT_API_LATEST;
+            ItemCountOptions.LocalUserId = rtContext->fAccountId;
+            ItemCountOptions.OfferId = offer->Id;
+            uint32_t itemCount = EOS_Ecom_GetOfferItemCount(EcomHandle, &ItemCountOptions);
+
+            CoronaLog("[EOS_DEBUG]     offer '%s' contains %u catalog items:", offerId.c_str(), itemCount);
+
+            for (uint32_t j = 0; j < itemCount; j++)
+            {
+                EOS_Ecom_CopyOfferItemByIndexOptions ItemCopyOptions = {};
+                ItemCopyOptions.ApiVersion = EOS_ECOM_COPYOFFERITEMBYINDEX_API_LATEST;
+                ItemCopyOptions.LocalUserId = rtContext->fAccountId;
+                ItemCopyOptions.OfferId = offer->Id;
+                ItemCopyOptions.ItemIndex = j;
+
+                EOS_Ecom_CatalogItem* item = nullptr;
+                EOS_EResult itemResult = EOS_Ecom_CopyOfferItemByIndex(EcomHandle, &ItemCopyOptions, &item);
+                if (itemResult == EOS_EResult::EOS_Success && item)
+                {
+                    std::string itemId = item->Id ? item->Id : "";
+                    CoronaLog("[EOS_DEBUG]       item[%u]: id='%s' title='%s'",
+                              j, itemId.c_str(),
+                              item->TitleText ? item->TitleText : "(null)");
+
+                    if (!itemId.empty() && !offerId.empty())
+                    {
+                        sCatalogItemToOfferIdMap[itemId] = offerId;
+                    }
+
+                    if (!requestedSet.empty() && requestedSet.count(itemId) > 0 && matchedSet.count(itemId) == 0)
+                    {
+                        ProductInfo product;
+                        product.productIdentifier = itemId;
+                        product.title = item->TitleText ? item->TitleText : offerTitle;
+                        product.description = item->DescriptionText ? item->DescriptionText : "";
+                        product.localizedPrice = FormatOfferPrice(offer);
+
+                        CoronaLog("[EOS_DEBUG]       MATCHED catalog item by ID: id='%s' title='%s' price='%s'",
+                                  product.productIdentifier.c_str(),
+                                  product.title.c_str(),
+                                  product.localizedPrice.c_str());
+
+                        task->AddProduct(product);
+                        matchedSet.insert(itemId);
+                        matchedCount++;
+                    }
+
+                    EOS_Ecom_CatalogItem_Release(item);
+                }
+            }
+
+            // Also check if the offer ID itself was requested
+            bool isOfferRequested = false;
+            if (requestedSet.empty())
+            {
+                isOfferRequested = true;
+            }
+            else if (requestedSet.count(offerId) > 0 && matchedSet.count(offerId) == 0)
+            {
+                isOfferRequested = true;
+            }
+
+            if (isOfferRequested)
+            {
+                ProductInfo product;
+                product.productIdentifier = offerId;
+                product.title = offer->TitleText ? offer->TitleText : "";
+                product.description = offer->DescriptionText ? offer->DescriptionText : "";
+                product.localizedPrice = FormatOfferPrice(offer);
+
+                CoronaLog("[EOS_DEBUG]   MATCHED offer by ID: id='%s' title='%s' price='%s'",
+                          product.productIdentifier.c_str(),
+                          product.title.c_str(),
+                          product.localizedPrice.c_str());
+
+                task->AddProduct(product);
+                matchedSet.insert(offerId);
+                matchedCount++;
+            }
+
+            EOS_Ecom_CatalogOffer_Release(offer);
+        }
+
+        CoronaLog("[EOS_DEBUG] OnQueryOffersComplete: returning %d matched products to Lua",
+                  matchedCount);
+    }
+
+    rtContext->QueueEventTask(task);
+    delete context;
+}
+
+/** Flag to prevent double-login attempts when OnInit is called multiple times */
+static bool sLoginInProgress = false;
+
+/** eos.init() - iOS implementation: triggers EOS Auth login */
+int OnInit(lua_State* luaStatePointer)
+{
+    auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
+
+    if (!contextPointer || !contextPointer->fPlatformHandle)
+    {
+        return 0;
+    }
+
+    if (contextPointer->fAccountId)
+    {
+        return 0;
+    }
+
+    if (sLoginInProgress)
+    {
+        return 0;
+    }
+
+    sLoginInProgress = true;
+
+    EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(contextPointer->fPlatformHandle);
+    if (!AuthHandle)
+    {
+        sLoginInProgress = false;
+        return 0;
+    }
+
+    // Try PersistentAuth first
+    EOS_Auth_LoginOptions LoginOptions = {};
+    LoginOptions.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
+
+    EOS_Auth_Credentials Credentials = {};
+    Credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
+    Credentials.Type = EOS_ELoginCredentialType::EOS_LCT_PersistentAuth;
+    Credentials.Id = nullptr;
+    Credentials.Token = nullptr;
+    LoginOptions.Credentials = &Credentials;
+
+    EOS_Auth_Login(AuthHandle, &LoginOptions, contextPointer, [](const EOS_Auth_LoginCallbackInfo* Data) {
+        auto* ctx = static_cast<RuntimeContext*>(Data->ClientData);
+        if (!ctx) return;
+
+        if (Data->ResultCode == EOS_EResult::EOS_Success)
+        {
+            ctx->fAccountId = Data->LocalUserId;
+            ctx->fAuthHandle = EOS_Platform_GetAuthInterface(ctx->fPlatformHandle);
+            sLoginInProgress = false;
+            ctx->OnLoginResponse(Data);
+        }
+        else
+        {
+            // PersistentAuth failed (no cached credentials), fall back to AccountPortal
+
+            EOS_HAuth AuthHandle2 = EOS_Platform_GetAuthInterface(ctx->fPlatformHandle);
+            EOS_Auth_LoginOptions LoginOptions2 = {};
+            LoginOptions2.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
+            EOS_Auth_Credentials Credentials2 = {};
+            Credentials2.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
+            Credentials2.Type = EOS_ELoginCredentialType::EOS_LCT_AccountPortal;
+            Credentials2.Id = nullptr;
+            Credentials2.Token = nullptr;
+
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+            // iOS requires EOS_IOS_Auth_CredentialsOptions with a presentation context
+            // for the ASWebAuthenticationSession used by AccountPortal login.
+            EOS_IOS_Auth_CredentialsOptions_Compat iosOpts2 = {};
+            iosOpts2.ApiVersion = 2; // EOS_IOS_AUTH_CREDENTIALSOPTIONS_API_LATEST
+            iosOpts2.PresentationContextProviding = CreateWebAuthContextProvider();
+            iosOpts2.CreateBackgroundSnapshotView = nullptr;
+            iosOpts2.CreateBackgroundSnapshotViewContext = nullptr;
+            Credentials2.SystemAuthCredentialsOptions = &iosOpts2;
+#endif
+
+            LoginOptions2.Credentials = &Credentials2;
+
+            EOS_Auth_Login(AuthHandle2, &LoginOptions2, ctx, [](const EOS_Auth_LoginCallbackInfo* Data2) {
+                auto* ctx2 = static_cast<RuntimeContext*>(Data2->ClientData);
+                if (!ctx2) return;
+
+                if (Data2->ResultCode == EOS_EResult::EOS_Success)
+                {
+                    ctx2->fAccountId = Data2->LocalUserId;
+                    ctx2->fAuthHandle = EOS_Platform_GetAuthInterface(ctx2->fPlatformHandle);
+                }
+
+                sLoginInProgress = false;
+                ctx2->OnLoginResponse(Data2);
+            });
+        }
+    });
+
+    return 0;
+}
+
+/** eos.loadProducts(identifiers, listener) - iOS implementation using EOS Ecom API */
+int OnLoadProducts(lua_State* luaStatePointer)
+{
+    auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
+    if (!contextPointer || !contextPointer->fPlatformHandle)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnLoadProducts: PlatformHandle is null");
+        if (contextPointer)
+        {
+            auto task = std::make_shared<DispatchLoadProductsEventTask>();
+            task->SetLuaEventDispatcher(contextPointer->GetLuaEventDispatcher());
+            task->SetIsError(true);
+            task->SetErrorString("Platform not initialized");
+            contextPointer->QueueEventTask(task);
+        }
+        return 0;
+    }
+
+    if (!contextPointer->fAccountId)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnLoadProducts: not logged in");
+        auto task = std::make_shared<DispatchLoadProductsEventTask>();
+        task->SetLuaEventDispatcher(contextPointer->GetLuaEventDispatcher());
+        task->SetIsError(true);
+        task->SetErrorString("Not logged in");
+        contextPointer->QueueEventTask(task);
+        return 0;
+    }
+
+    auto context = new QueryOffersContext();
+    if (lua_istable(luaStatePointer, 1))
+    {
+        int tableLen = (int)lua_objlen(luaStatePointer, 1);
+        CoronaLog("[EOS_DEBUG] OnLoadProducts: reading %d product identifiers from Lua", tableLen);
+        for (int i = 1; i <= tableLen; i++)
+        {
+            lua_rawgeti(luaStatePointer, 1, i);
+            if (lua_isstring(luaStatePointer, -1))
+            {
+                const char* id = lua_tostring(luaStatePointer, -1);
+                if (id)
+                {
+                    context->requestedOfferIds.push_back(id);
+                    CoronaLog("[EOS_DEBUG]   identifier[%d] = %s", i, id);
+                }
+            }
+            lua_pop(luaStatePointer, 1);
+        }
+    }
+
+    EOS_HEcom EcomHandle = EOS_Platform_GetEcomInterface(contextPointer->fPlatformHandle);
+    if (!EcomHandle)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnLoadProducts: Could not get Ecom interface");
+        auto task = std::make_shared<DispatchLoadProductsEventTask>();
+        task->SetLuaEventDispatcher(contextPointer->GetLuaEventDispatcher());
+        task->SetIsError(true);
+        task->SetErrorString("Could not get Ecom interface");
+        contextPointer->QueueEventTask(task);
+        delete context;
+        return 0;
+    }
+
+    EOS_Ecom_QueryOffersOptions QueryOptions = {};
+    QueryOptions.ApiVersion = EOS_ECOM_QUERYOFFERS_API_LATEST;
+    QueryOptions.LocalUserId = contextPointer->fAccountId;
+    QueryOptions.OverrideCatalogNamespace = nullptr;
+
+    CoronaLog("[EOS_DEBUG] OnLoadProducts: calling EOS_Ecom_QueryOffers");
+    EOS_Ecom_QueryOffers(EcomHandle, &QueryOptions, context, OnQueryOffersComplete);
+
+    return 0;
+}
+
+/** Context passed through EOS_Ecom_Checkout callback */
+struct CheckoutContext {
+    std::string productIdentifier;
+    std::string offerId;
+};
+
+/** EOS Ecom Checkout completion callback */
+static void EOS_CALL OnCheckoutComplete(const EOS_Ecom_CheckoutCallbackInfo* Data)
+{
+    auto* context = static_cast<CheckoutContext*>(Data->ClientData);
+    auto* rtContext = RuntimeContext::GetFirstInstance();
+
+    CoronaLog("[EOS_DEBUG] OnCheckoutComplete: result=%s productId='%s'",
+              EOS_EResult_ToString(Data->ResultCode),
+              context->productIdentifier.c_str());
+
+    auto task = std::make_shared<DispatchStoreTransactionEventTask>();
+    if (rtContext)
+    {
+        task->SetLuaEventDispatcher(rtContext->GetLuaEventDispatcher());
+    }
+
+    TransactionInfo txn;
+    txn.productIdentifier = context->productIdentifier;
+
+    if (Data->ResultCode == EOS_EResult::EOS_Success)
+    {
+        txn.state = "purchased";
+        txn.receipt = Data->TransactionId ? Data->TransactionId : "";
+        CoronaLog("[EOS_DEBUG] OnCheckoutComplete: purchase SUCCEEDED, transactionId='%s'", txn.receipt.c_str());
+    }
+    else if (Data->ResultCode == EOS_EResult::EOS_Canceled)
+    {
+        txn.state = "cancelled";
+        CoronaLog("[EOS_DEBUG] OnCheckoutComplete: purchase CANCELLED");
+    }
+    else
+    {
+        txn.state = "failed";
+        CoronaLog("[EOS_DEBUG] OnCheckoutComplete: purchase FAILED: %s", EOS_EResult_ToString(Data->ResultCode));
+    }
+
+    task->AddTransaction(txn);
+    if (rtContext) rtContext->QueueEventTask(task);
+
+    delete context;
+}
+
+/** eos.purchase(productIdentifier) - iOS implementation */
+int OnPurchaseProduct(lua_State* luaStatePointer)
+{
+    const char* productId = lua_tostring(luaStatePointer, 1);
+    if (!productId || productId[0] == '\0')
+    {
+        CoronaLog("[EOS_DEBUG] OnPurchaseProduct: ERROR - no product identifier provided");
+        return 0;
+    }
+
+    CoronaLog("[EOS_DEBUG] OnPurchaseProduct: called with productId='%s'", productId);
+
+    auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
+    if (!contextPointer || !contextPointer->fPlatformHandle || !contextPointer->fAccountId)
+    {
+        CoronaLog("[EOS_DEBUG] OnPurchaseProduct: ERROR - not logged in");
+        if (contextPointer)
+        {
+            auto task = std::make_shared<DispatchStoreTransactionEventTask>();
+            task->SetLuaEventDispatcher(contextPointer->GetLuaEventDispatcher());
+            TransactionInfo txn;
+            txn.productIdentifier = productId;
+            txn.state = "failed";
+            task->AddTransaction(txn);
+            contextPointer->QueueEventTask(task);
+        }
+        return 0;
+    }
+
+    EOS_HEcom EcomHandle = EOS_Platform_GetEcomInterface(contextPointer->fPlatformHandle);
+
+    std::string offerId = productId;
+    auto it = sCatalogItemToOfferIdMap.find(productId);
+    if (it != sCatalogItemToOfferIdMap.end())
+    {
+        offerId = it->second;
+        CoronaLog("[EOS_DEBUG] OnPurchaseProduct: mapped catalog item '%s' -> offer '%s'", productId, offerId.c_str());
+    }
+
+    EOS_Ecom_CheckoutEntry entry = {};
+    entry.ApiVersion = EOS_ECOM_CHECKOUTENTRY_API_LATEST;
+    entry.OfferId = offerId.c_str();
+
+    EOS_Ecom_CheckoutOptions options = {};
+    options.ApiVersion = EOS_ECOM_CHECKOUT_API_LATEST;
+    options.LocalUserId = contextPointer->fAccountId;
+    options.OverrideCatalogNamespace = nullptr;
+    options.EntryCount = 1;
+    options.Entries = &entry;
+
+    auto* checkoutCtx = new CheckoutContext();
+    checkoutCtx->productIdentifier = productId;
+    checkoutCtx->offerId = offerId;
+
+    CoronaLog("[EOS_DEBUG] OnPurchaseProduct: calling EOS_Ecom_Checkout with offerId='%s'", offerId.c_str());
+    EOS_Ecom_Checkout(EcomHandle, &options, checkoutCtx, OnCheckoutComplete);
+
+    return 0;
+}
+
+int OnRestorePurchases(lua_State* luaStatePointer) { return 0; }
+int OnFinishTransaction(lua_State* luaStatePointer) { return 0; }
+
+/** eos.isLoggedOn() - returns boolean indicating whether user is authenticated */
+int OnIsLoggedOn(lua_State* luaStatePointer)
+{
+    auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
+    if (contextPointer && contextPointer->fPlatformHandle && contextPointer->fAccountId)
+    {
+        lua_pushboolean(luaStatePointer, 1);
+    }
+    else
+    {
+        lua_pushboolean(luaStatePointer, 0);
+    }
+    return 1;
+}
+
+/** eos.logout() - clears local auth state */
+int OnLogout(lua_State* luaStatePointer)
+{
+    CoronaLog("[EOS_DEBUG] OnLogout: called");
+    auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
+    if (contextPointer && contextPointer->fPlatformHandle && contextPointer->fAuthHandle)
+    {
+        // Delete persistent auth token so next login requires fresh sign-in
+        EOS_Auth_DeletePersistentAuthOptions opts = {};
+        opts.ApiVersion = EOS_AUTH_DELETEPERSISTENTAUTH_API_LATEST;
+        opts.RefreshToken = nullptr;
+        EOS_Auth_DeletePersistentAuth(contextPointer->fAuthHandle, &opts, nullptr, nullptr);
+
+        contextPointer->fAccountId = nullptr;
+        sLoginInProgress = false;
+    }
+    return 0;
+}
+
+/** eos.loginWithAccountPortal() - iOS implementation */
+int OnLoginWithAccountPortal(lua_State* luaStatePointer)
+{
+    auto contextPointer = (RuntimeContext*)lua_touserdata(luaStatePointer, lua_upvalueindex(1));
+    if (!contextPointer || !contextPointer->fPlatformHandle)
+    {
+        return 0;
+    }
+
+    // If another login (e.g. from eos.init()) is already in progress, don't start a second
+    // concurrent EOS_Auth_Login — the SDK doesn't support it and the second call will fail.
+    // Just wait for the in-progress login to complete; it will dispatch loginResponse.
+    if (sLoginInProgress)
+    {
+        return 0;
+    }
+
+    // If already logged in, immediately dispatch a success loginResponse event
+    if (contextPointer->fAccountId)
+    {
+        auto task = std::make_shared<DispatchLoginResponseEventTask>();
+        task->SetLuaEventDispatcher(contextPointer->GetLuaEventDispatcher());
+
+        // Build a synthetic successful login callback info
+        EOS_Auth_LoginCallbackInfo syntheticData = {};
+        syntheticData.ResultCode = EOS_EResult::EOS_Success;
+        syntheticData.LocalUserId = contextPointer->fAccountId;
+        task->AcquireEventDataFrom(&syntheticData);
+
+        contextPointer->QueueEventTask(task);
+        return 0;
+    }
+
+    EOS_HAuth AuthHandle = EOS_Platform_GetAuthInterface(contextPointer->fPlatformHandle);
+    if (!AuthHandle)
+    {
+        CoronaLog("ERROR: [EOS SDK] OnLoginWithAccountPortal: Could not get Auth interface");
+        return 0;
+    }
+
+    EOS_Auth_LoginOptions LoginOptions = {};
+    LoginOptions.ApiVersion = EOS_AUTH_LOGIN_API_LATEST;
+
+    EOS_Auth_Credentials Credentials = {};
+    Credentials.ApiVersion = EOS_AUTH_CREDENTIALS_API_LATEST;
+    Credentials.Type = EOS_ELoginCredentialType::EOS_LCT_AccountPortal;
+    Credentials.Id = nullptr;
+    Credentials.Token = nullptr;
+
+#if defined(__APPLE__) && TARGET_OS_IPHONE
+    // iOS requires EOS_IOS_Auth_CredentialsOptions with a presentation context
+    // for the ASWebAuthenticationSession used by AccountPortal login.
+    EOS_IOS_Auth_CredentialsOptions_Compat iosOpts = {};
+    iosOpts.ApiVersion = 2; // EOS_IOS_AUTH_CREDENTIALSOPTIONS_API_LATEST
+    iosOpts.PresentationContextProviding = CreateWebAuthContextProvider();
+    iosOpts.CreateBackgroundSnapshotView = nullptr;
+    iosOpts.CreateBackgroundSnapshotViewContext = nullptr;
+    Credentials.SystemAuthCredentialsOptions = &iosOpts;
+#endif
+
+    LoginOptions.Credentials = &Credentials;
+
+    EOS_Auth_Login(AuthHandle, &LoginOptions, contextPointer, [](const EOS_Auth_LoginCallbackInfo* Data) {
+        auto* ctx = static_cast<RuntimeContext*>(Data->ClientData);
+        if (!ctx) return;
+
+        if (Data->ResultCode == EOS_EResult::EOS_Success)
+        {
+            CoronaLog("[EOS SDK] Login successful via AccountPortal");
+            ShowDebugAlert(ctx, "EOS Debug", "loginWithAccountPortal callback: SUCCESS!");
+            ctx->fAccountId = Data->LocalUserId;
+            ctx->fAuthHandle = EOS_Platform_GetAuthInterface(ctx->fPlatformHandle);
+        }
+        else
+        {
+            const char* errStr = EOS_EResult_ToString(Data->ResultCode);
+            CoronaLog("[EOS SDK] Login failed: %s", errStr);
+
+            char alertMsg[256];
+            snprintf(alertMsg, sizeof(alertMsg), "loginWithAccountPortal FAILED: %s", errStr);
+            ShowDebugAlert(ctx, "EOS Error", alertMsg);
+        }
+
+        ctx->OnLoginResponse(Data);
+    });
+
+    return 0;
 }
 
 
@@ -471,6 +1100,15 @@ CORONA_EXPORT int luaopen_plugin_eos(lua_State* luaStatePointer)
 			{ "setNotificationPosition", OnSetNotificationPosition },
 			{ "addEventListener", OnAddEventListener },
 			{ "removeEventListener", OnRemoveEventListener },
+			{ "init", OnInit },
+			{ "isLoggedOn", OnIsLoggedOn },
+			{ "logout", OnLogout },
+			{ "loadProducts", OnLoadProducts },
+			{ "purchase", OnPurchaseProduct },
+			{ "consumePurchase", OnFinishTransaction },
+			{ "finishTransaction", OnFinishTransaction },
+			{ "restore", OnRestorePurchases },
+			{ "loginWithAccountPortal", OnLoginWithAccountPortal },
 			{ nullptr, nullptr }
 		};
 		lua_createtable(luaStatePointer, 0, 0);
@@ -1111,6 +1749,36 @@ int OnPurchaseProduct(lua_State* luaStatePointer)
     else
     {
         CoronaLog("[EOS_DEBUG] OnPurchaseProduct: using productId as offer ID directly: '%s'", productId);
+    }
+
+    // Check if the offer is available for purchase (log warning if not)
+    {
+        EOS_Ecom_CopyOfferByIdOptions copyOpts = {};
+        copyOpts.ApiVersion = EOS_ECOM_COPYOFFERBYID_API_LATEST;
+        copyOpts.LocalUserId = LocalUserId;
+        copyOpts.OfferId = offerId.c_str();
+        EOS_Ecom_CatalogOffer* offer = nullptr;
+        EOS_EResult copyRes = EOS_Ecom_CopyOfferById(EcomHandle, &copyOpts, &offer);
+        if (copyRes == EOS_EResult::EOS_Success && offer)
+        {
+            CoronaLog("[EOS_DEBUG] OnPurchaseProduct: offer '%s' title='%s' available=%d price=%s",
+                      offerId.c_str(),
+                      offer->TitleText ? offer->TitleText : "(null)",
+                      (int)offer->bAvailableForPurchase,
+                      FormatOfferPrice(offer).c_str());
+            if (!offer->bAvailableForPurchase)
+            {
+                CoronaLog("[EOS_DEBUG] WARNING: offer '%s' has bAvailableForPurchase=FALSE — "
+                          "this usually means the offer has unmet prerequisites in the EOS catalog. "
+                          "Check the EOS Developer Portal catalog configuration.", offerId.c_str());
+            }
+            EOS_Ecom_CatalogOffer_Release(offer);
+        }
+        else
+        {
+            CoronaLog("[EOS_DEBUG] OnPurchaseProduct: could not look up offer '%s': %s (proceeding anyway)",
+                      offerId.c_str(), EOS_EResult_ToString(copyRes));
+        }
     }
 
     // Create checkout entry

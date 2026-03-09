@@ -327,6 +327,7 @@
 					../Dependencies/Corona/shared/include/Corona,
 					../Dependencies/Corona/shared/include/lua,
 					../Dependencies/Epic/public/epic,
+					Plugin,
 				);
 			};
 			name = Debug;
@@ -352,6 +353,7 @@
 					../Dependencies/Corona/shared/include/Corona,
 					../Dependencies/Corona/shared/include/lua,
 					../Dependencies/Epic/public/epic,
+					Plugin,
 				);
 			};
 			name = Release;

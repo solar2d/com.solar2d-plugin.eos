@@ -164,6 +164,19 @@ class RuntimeContext
 		static RuntimeContext* GetInstanceBy(lua_State* luaStatePointer);
 
 		/**
+		  Gets the first active RuntimeContext instance (convenience for single-instance case).
+		  @return Returns a pointer to the first active RuntimeContext, or null if none exist.
+		 */
+		static RuntimeContext* GetFirstInstance();
+
+		/**
+		  Queues an event task for dispatch on the next enterFrame.
+		  Used by EOS callback functions that don't have direct access to the Lua state.
+		  @param task Shared pointer to the event task to queue.
+		 */
+		void QueueEventTask(std::shared_ptr<BaseDispatchEventTask> task);
+
+		/**
 		  Fetches the number of RuntimeContext instances currently active in the application.
 		  @return Returns the number of instances current active. Returns zero if all instances have been destroyed.
 		 */

@@ -35,3 +35,5 @@
 3	497	1772953298149490975	CMakeFiles/native-lib.dir/native-lib.cpp.o	7b44a7572579e5e7
 3	651	1772953298303134175	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/epic/com.solar2d-plugin.eos/src/Source/EosLuaInterface.cpp.o	baf50d75b1360254
 651	695	1772953298347900410	/Users/scottharrison/Desktop/epic/com.solar2d-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	b786ac6d362d4e14
+3	559	1772954573509396542	CMakeFiles/native-lib.dir/Users/scottharrison/Desktop/epic/com.solar2d-plugin.eos/src/Source/EosLuaInterface.cpp.o	baf50d75b1360254
+560	606	1772954573555974555	/Users/scottharrison/Desktop/epic/com.solar2d-plugin.eos/src/android/plugin/build/intermediates/cxx/RelWithDebInfo/671o4p23/obj/x86_64/libnative-lib.so	b786ac6d362d4e14

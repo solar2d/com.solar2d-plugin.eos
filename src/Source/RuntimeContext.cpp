@@ -121,10 +121,29 @@ RuntimeContext* RuntimeContext::GetInstanceBy(lua_State* luaStatePointer)
 	return nullptr;
 }
 
+RuntimeContext* RuntimeContext::GetFirstInstance()
+{
+	if (sRuntimeContextCollection.empty())
+	{
+		return nullptr;
+	}
+	return *sRuntimeContextCollection.begin();
+}
+
+void RuntimeContext::QueueEventTask(std::shared_ptr<BaseDispatchEventTask> task)
+{
+	if (task)
+	{
+		fDispatchEventTaskQueue.push(task);
+	}
+}
+
 int RuntimeContext::GetInstanceCount()
 {
 	return (int)sRuntimeContextCollection.size();
 }
+
+static int sTickCount = 0;
 
 int RuntimeContext::OnCoronaEnterFrame(lua_State* luaStatePointer)
 {
@@ -132,6 +151,18 @@ int RuntimeContext::OnCoronaEnterFrame(lua_State* luaStatePointer)
 	if (!luaStatePointer)
 	{
 		return 0;
+	}
+
+	sTickCount++;
+
+	// Show a one-time debug alert after 60 frames (~1 second) to confirm ticking works
+	if (sTickCount == 60)
+	{
+		char buf[256];
+		snprintf(buf, sizeof(buf),
+			"native.showAlert(\"Tick Check\", \"enterFrame #60, platformHandle=%s\", {\"OK\"})",
+			fPlatformHandle ? "YES" : "NULL");
+		luaL_dostring(luaStatePointer, buf);
 	}
 
 	if (fPlatformHandle)

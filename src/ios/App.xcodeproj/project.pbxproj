@@ -220,7 +220,6 @@
 		A447B823166856C7009EA762 /* Corona */ = {
 			isa = PBXGroup;
 			children = (
-				A447B824166856F3009EA762 /* main.lua */,
 				F54A40BD1EE07F9100AF417D /* build.settings */,
 				F54A40BE1EE07F9100AF417D /* config.lua */,
 			);
@@ -298,6 +297,7 @@
 				A484112A15114F700074BD57 /* InfoPlist.strings */,
 				C22C1E4A1E981D9000D74196 /* LaunchScreen.storyboardc */,
 				A484112D15114F700074BD57 /* main.mm */,
+				A447B824166856F3009EA762 /* main.lua */,
 				A484112F15114F700074BD57 /* Prefix.pch */,
 				A447B60E165D72FB009EA762 /* AppCoronaDelegate.h */,
 				A447B60F165D72FB009EA762 /* AppCoronaDelegate.mm */,
